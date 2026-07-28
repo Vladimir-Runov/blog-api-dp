@@ -1,4 +1,4 @@
--- Миграция для создания начальной схемы базы данных Postgres SQL
+-- Миграция для создания схемы базы данных Postgres SQL ч 1
 
 -- Таблица пользователей
 CREATE TABLE IF NOT EXISTS users (
@@ -10,12 +10,14 @@ CREATE TABLE IF NOT EXISTS users (
 	    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица постов
+-- Таблица постов бзера
 CREATE TABLE IF NOT EXISTS posts (
     id SERIAL PRIMARY KEY,
     title VARCHAR(200) NOT NULL CHECK (LENGTH(title) > 0),
     content TEXT NOT NULL	CHECK (LENGTH(content) > 0),
     author_id INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',	
+    publish_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT fk_posts_author 
@@ -24,7 +26,7 @@ CREATE TABLE IF NOT EXISTS posts (
      		ON DELETE CASCADE
 );
 
--- Таблица комментариев к посту
+-- Таблица комментариев к посту юзера
 CREATE TABLE IF NOT EXISTS comments (
     id SERIAL PRIMARY KEY,
     content TEXT NOT NULL CHECK (LENGTH(content) > 0),
@@ -43,10 +45,3 @@ CREATE TABLE IF NOT EXISTS comments (
 		REFERENCES users(id) 
 		ON DELETE CASCADE
 );
-
-
--- Индексы
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
-CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);

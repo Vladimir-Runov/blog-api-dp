@@ -1,10 +1,14 @@
 package model
 
 import (
-	"errors"
 	"time"
 
 	"github.com/go-playground/validator/v10" // go get github.com/go-playground/validator/v10
+)
+
+const (
+	PostStatusDraft     = "draft"
+	PostStatusPublished = "published"
 )
 
 // User представляет модель пользователя в системе
@@ -39,12 +43,15 @@ func (u *User) ToResponse() UserResponse {
 
 // Post представляет модель поста в блоге
 type Post struct {
-	ID        int       `json:"id" db:"id"`
-	Title     string    `json:"title" db:"title"`
-	Content   string    `json:"content" db:"content"`
-	AuthorID  int       `json:"author_id" db:"author_id"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID       int    `json:"id" db:"id"`
+	Title    string `json:"title" db:"title"`
+	Content  string `json:"content" db:"content"`
+	AuthorID int    `json:"author_id" db:"author_id"`
+	Status   string `json:"status" db:"status"`
+
+	PublishAt *time.Time `json:"publish_at,omitempty" db:"publish_at"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // CanBeEditedBy проверяет, может ли пользователь редактировать пост
@@ -89,6 +96,8 @@ type PostResponse struct {
 	Title     string       `json:"title"`
 	Content   string       `json:"content"`
 	Author    UserResponse `json:"author"`
+	Status    string       `json:"status"`
+	PublishAt *time.Time   `json:"publish_at,omitempty"`
 	CreatedAt time.Time    `json:"created_at"`
 	UpdatedAt time.Time    `json:"updated_at"`
 }
@@ -139,8 +148,9 @@ func (r *UserLoginRequest) Validate() error {
 
 // PostCreateRequest представляет запрос на создание поста
 type PostCreateRequest struct {
-	Title   string `json:"title" validate:"required,min=1,max=200"`
-	Content string `json:"content" validate:"required,min=1"`
+	Title     string     `json:"title" validate:"required,min=1,max=200"`
+	Content   string     `json:"content" validate:"required,min=1"`
+	PublishAt *time.Time `json:"publish_at,omitempty"`
 }
 
 // Validate выполняет валидацию данных PostCreateRequest
@@ -152,8 +162,10 @@ func (r *PostCreateRequest) Validate() error {
 
 // PostUpdateRequest представляет запрос на обновление поста
 type PostUpdateRequest struct {
-	Title   string `json:"title" validate:"required,min=1,max=200"`
-	Content string `json:"content" validate:"required,min=1"`
+	Title     string     `json:"title" validate:"required,min=1,max=200"`
+	Content   string     `json:"content" validate:"required,min=1"`
+	Status    string     `json:"status,omitempty"`
+	PublishAt *time.Time `json:"publish_at,omitempty"`
 }
 
 func (r *PostUpdateRequest) Validate() error {
@@ -185,20 +197,12 @@ func (r *CommentUpdateRequest) Validate() error {
 	return validate.Struct(r)
 }
 
-// 409 при уже существующем пользователе,
-// 401 при неверных данных входа,
-// 403 при попытке редактировать чужой пост,
-// 404 при отсутствии сущности.
-var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	// user
-	ErrUserAlreadyExists = errors.New("user already exists") // - ошибка, возникающая при попытке зарегистрировать пользователя, который уже существует.
-	ErrUserNotFound      = errors.New("user not found")
-	// post
-	ErrPostNotFound  = errors.New("post not found")
-	ErrPostNotExists = errors.New("post does not exist")
-	// comment
-	ErrUnauthorized    = errors.New("unauthorized")
-	ErrForbidden       = errors.New("forbidden")
-	ErrCommentNotFound = errors.New("comment not found")
-)
+// IsScheduled проверяет, является ли пост отложенной публикацией
+func (p *Post) IsScheduled() bool {
+	return p.Status == PostStatusDraft && p.PublishAt != nil && p.PublishAt.After(time.Now())
+}
+
+// ShouldPublishNow проверяет, должен ли пост быть опубликован прямо сейчас
+func (p *Post) ShouldPublishNow() bool {
+	return p.Status == PostStatusDraft && p.PublishAt != nil && !p.PublishAt.After(time.Now())
+}

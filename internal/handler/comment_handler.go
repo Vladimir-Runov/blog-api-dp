@@ -1,0 +1,296 @@
+package handler
+
+import (
+	blogerrors "blog-api-dp/internal/erros"
+	"blog-api-dp/internal/model"
+	"blog-api-dp/internal/service"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+)
+
+type CommentHandler struct {
+	commentService *service.CommentService
+}
+
+func NewCommentHandler(commentService *service.CommentService) *CommentHandler {
+	return &CommentHandler{
+		commentService: commentService,
+	}
+}
+
+// Create - создание нового комментария
+// POST /api/posts/{postId}/comments
+// Требует аутентификации
+func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
+	log.Printf("POST /api/comments: Creating comment...")
+	// 1. Проверить метод запроса (должен быть POST)
+	if r.Method != http.MethodPost {
+		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 2. Получить ID пользователя из контекста
+	userID, ok := getUserIDFromContext(r.Context())
+	if !ok {
+		log.Printf("POST /api/comments: Unauthorized")
+		blogerrors.ReplyJsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	log.Printf("\tUser Id: %d", userID)
+	// 3. Декодировать тело запроса
+	var req model.CommentCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("POST /api/comments: Invalid request body: %v", r.Body)
+		blogerrors.ReplyJsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 4. Создать комментарий через сервис
+	var err error
+	idStr, err1 := extractIDFromCommentsPath(r.URL.Path, "/api/posts/") // Примерный URL: /api/comments/123
+	if err1 != nil {
+		log.Printf("POST /api/comments: Invalid post ID %s in URL: %s : %v", idStr, r.URL.Path, err1)
+		blogerrors.ReplyJsonError(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("POST /api/comments: Extracted post ID from URL: %s", idStr)
+
+	req.PostID, err = strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("POST /api/comments: Invalid post ID %d in URL: %s", req.PostID, r.URL.Path)
+		blogerrors.ReplyJsonError(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	comment, err := h.commentService.Create(r.Context(), userID, &req)
+	if err != nil {
+		switch err {
+		case blogerrors.ErrPostNotFound:
+			log.Printf("POST /api/comments: Post not found")
+			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound) //  404 при отсутствии сущности.
+		default:
+			log.Printf("POST /api/comments: Failed to create comment to post ID %d: %v", req.PostID, err)
+			blogerrors.ReplyJsonError(w, "Failed to create comment", http.StatusInternalServerError) // 500 Internal Server Error
+		}
+		return
+	}
+
+	// 5. Отправить успешный ответ
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(comment)
+
+	log.Printf("POST /api/comments: Comment created successfully")
+	/// fix   http.Error(w, "Not implemented", http.StatusNotImplemented)
+}
+
+// GetByID возвращает комментарий по ID
+// GET /api/comments/{id}
+// Не требует аутентификации
+func (h *CommentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	log.Printf("GET /api/comments/{id}: Retrieving comment...")
+	// 1. Проверить метод запроса (должен быть GET)
+	if r.Method != http.MethodGet {
+		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 2. Извлечь ID из URL
+	// Примерный URL: /api/comments/123
+	idStr := extractIDFromPath(r.URL.Path, "/api/comments/")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		blogerrors.ReplyJsonError(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	// 3. Получить комментарий через сервис
+	comment, err := h.commentService.GetByID(r.Context(), id)
+	if err != nil {
+		if err == blogerrors.ErrCommentNotFound {
+			blogerrors.ReplyJsonError(w, "Comment not found", http.StatusNotFound)
+		} else {
+			blogerrors.ReplyJsonError(w, "Failed to get comment", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 4. Отправить ответ
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(comment)
+
+	/// fix   http.Error(w, "Not implemented", http.StatusNotImplemented)
+}
+
+// GetByPost возвращает комментарии к посту
+// GET /api/posts/{id}/comments?limit=20&offset=0
+// curl -X GET "http://localhost:8080/api/posts/1/comments" -H "Authorization: Bearer " -H "Content-Type: application/json"
+// Не требует аутентификации
+func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
+	// TODO: Реализовать получение комментариев к посту
+	// HINT: Последовательность действий:
+
+	// 1. Проверить метод запроса (должен быть GET)
+	if r.Method != http.MethodGet {
+		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Извлечь ID поста из URL
+	//postIDStr := chi.URLParam(r, "id")
+	//postID, err := strconv.Atoi(postIDStr)
+
+	idStr, err1 := extractIDFromCommentsPath(r.URL.Path, "/api/posts/") // Примерный URL: /api/comments/123
+	if err1 != nil {
+		log.Printf("POST /api/comments: Invalid post ID %s in URL: %s : %v", idStr, r.URL.Path, err1)
+		blogerrors.ReplyJsonError(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("POST /api/comments: Extracted post ID from URL: %s", idStr)
+
+	postID, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("POST /api/comments: Invalid post ID %d in URL: %s", postID, r.URL.Path)
+		blogerrors.ReplyJsonError(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Извлечь параметры пагинации
+	query := r.URL.Query()
+	limit, err := strconv.Atoi(query.Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 20 // значение по умолчанию
+	}
+	offset, err := strconv.Atoi(query.Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	// Получить комментарии через сервис
+	comments, totalCount, err := h.commentService.GetByPost(r.Context(), postID, limit, offset)
+	if err != nil {
+		if err == blogerrors.ErrPostNotFound {
+			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound)
+		} else {
+			blogerrors.ReplyJsonError(w, "Failed to get comments", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 5. Создать ответ с метаданными
+	resp := make([]model.CommentResponse, len(comments))
+	for i, comment := range comments {
+		resp[i] = model.CommentResponse{
+			ID:      comment.ID,
+			Content: comment.Content,
+			PostID:  postID,
+			//	Author:    ,
+			CreatedAt: comment.CreatedAt,
+			UpdatedAt: comment.UpdatedAt,
+		}
+	}
+
+	// Отправить ответ
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := map[string]interface{}{
+		"total":    totalCount,
+		"comments": resp,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// Update обновляет комментарий
+// PUT /api/comments/{id}
+// Требует аутентификации, может обновить только автор
+func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
+	log.Fatalf("CommentHandler.Update")
+	// 1. Проверить метод запроса (должен быть PUT)
+	if r.Method != http.MethodPut {
+		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 2. Получить ID пользователя из контекста
+	userID, ok := getUserIDFromContext(r.Context())
+	if !ok {
+		blogerrors.ReplyJsonError(w, "Unauthorized (comment.Update)", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Извлечь ID комментария из URL
+	idStr := extractIDFromPath(r.URL.Path, "/api/comments/")
+	commentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		blogerrors.ReplyJsonError(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("\tUser Id: %d updfting comment %d", userID, commentID)
+
+	// 4. Декодировать тело запроса
+	var req model.CommentUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		blogerrors.ReplyJsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CommentID = commentID
+
+	// 5. Обновить комментарий через сервис
+	comment, err := h.commentService.Update(r.Context(), commentID, userID, &req)
+	if err != nil {
+		switch err {
+		case blogerrors.ErrCommentNotFound:
+			blogerrors.ReplyJsonError(w, "Comment not found", http.StatusNotFound) //
+		case blogerrors.ErrForbidden:
+			blogerrors.ReplyJsonError(w, "You can only update your own comments", http.StatusForbidden) //
+		default:
+			blogerrors.ReplyJsonError(w, "Failed to update comment", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 6. Отправить обновленный комментарий
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(comment)
+}
+
+// extractIDFromPath извлекает ID из указанного пути, удаляя заданный префикс.
+func extractIDFromCommentsPath(uri string, prefix string) (string, error) {
+	// Убедимся, что путь начинается с заданного префикса
+	if !strings.HasPrefix(uri, prefix) {
+		return "", fmt.Errorf("path does not start with expected prefix: %s", prefix)
+	}
+
+	// Удаляем префикс из пути
+	trimmedPath := strings.TrimPrefix(uri, prefix)
+
+	// Извлекаем ID, который должен быть первым сегментом после префикса
+	segments := strings.Split(trimmedPath, "/")
+	if len(segments) > 0 {
+		return segments[0], nil // Возвращаем первый сегмент как ID
+	}
+
+	return "", fmt.Errorf("no ID found in path after prefix: %s", prefix)
+
+	// extractIDFromURI extracts the ID portion from a URI given its prefix.
+	//func extractIDFromURI(uri, prefix string) (string, error) {
+	//if !strings.HasPrefix(uri, prefix) {
+	//	return "", fmt.Errorf("URI does not start with expected prefix: %s", prefix)
+	//}
+	//id := strings.TrimPrefix(uri, prefix)
+	//if id == "" {
+	///	return "", fmt.Errorf("missing ID in URI: %s", uri)
+	//}
+	//return id, nil
+}
+
+// writeError отправляет ошибку в формате JSON
