@@ -30,9 +30,6 @@ type JWTManager struct {
 
 // NewJWTManager создает новый экземпляр JWT менеджера
 func NewJWTManager(secretKey string, ttlHours int) *JWTManager {
-	// TODO: Инициализировать JWTManager
-	// - Преобразовать secretKey в []byte
-	// - Преобразовать ttlHours в time.Duration
 	return &JWTManager{
 		secretKey: []byte(secretKey),
 		ttl:       time.Duration(ttlHours) * time.Hour,
@@ -71,18 +68,26 @@ func (m *JWTManager) GenerateToken(userID int, email string, username string) (s
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 
 	// Шаг 1: Распарсить токен с проверкой подписи
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Проверка метода подписи
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
-		}
-		return m.secretKey, nil // Возвращаем секретный ключ для проверки подписи
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&Claims{},
+		func(token *jwt.Token) (interface{}, error) { // Проверка метода подписи
+			if e1, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				log.Printf(" Token x1 %v", e1)
+				return nil, ErrInvalidToken
+			}
+			return m.secretKey, nil // Возвращаем секретный ключ для проверки подписи
+		})
 
 	if err != nil { // Обработка ошибок парсинга токена
+
 		if err == jwt.ErrSignatureInvalid {
 			return nil, ErrInvalidToken // Невалидная подпись
 		}
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrExpiredToken // Истекший токен
+		}
+
 		return nil, ErrInvalidToken // Другие ошибки
 	}
 
@@ -94,12 +99,11 @@ func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 
 	// Шаг 3: Проверить время истечения токена
 	if claims.ExpiresAt.Time.Before(time.Now()) {
-		log.Printf(" Token expired at %v", claims.ExpiresAt.Time)
 		return nil, ErrExpiredToken // Истекший токен
 	}
 
 	// Шаг 4: Вернуть claims если токен валидный
-	log.Printf("\tToken valid for userID: %d, e-mail: %s, username: %s", claims.UserID, claims.Email, claims.Username)
+	//log.Printf("\tToken valid for userID: %d, e-mail: %s, username: %s", claims.UserID, claims.Email, claims.Username)
 	return claims, nil
 }
 

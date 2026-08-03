@@ -15,7 +15,7 @@ const (
 	testUserID    = 42
 	testEmail     = "user@example.com"
 	timeHour      = 1
-	testUsername  = "some_test_user"
+	testUsername  = "testuser"
 )
 
 func newTestJWTManager() *auth.JWTManager {
