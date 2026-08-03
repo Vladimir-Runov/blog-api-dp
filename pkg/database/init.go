@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
 
 	_ "github.com/lib/pq"
 )
@@ -18,15 +17,6 @@ type Config struct {
 	SSLMode  string
 }
 
-// TODO: Реализовать подключение к PostgreSQL
-// Шаги:
-// 1. Сформировать строку подключения (DSN) из параметров конфигурации
-// 2. Открыть соединение с БД используя sql.Open("postgres", dsn)
-// 3. Проверить соединение методом Ping()
-// 4. Настроить пул соединений (SetMaxOpenConns, SetMaxIdleConns)
-// 5. Вернуть подключение или ошибку
-//return nil, fmt.Errorf("not implemented")
-
 // NewPostgresDB создает новое подключение к PostgreSQL
 func NewPostgresDB(cfg Config) (*sql.DB, error) {
 	// Формируем DSN (строку подключения)
@@ -35,7 +25,7 @@ func NewPostgresDB(cfg Config) (*sql.DB, error) {
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
 	)
-	log.Print(dsn)
+
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
@@ -55,10 +45,6 @@ func NewPostgresDB(cfg Config) (*sql.DB, error) {
 
 // CheckConnection проверяет соединение с базой данных
 func CheckConnection(db *sql.DB) error {
-	// TODO: Реализовать проверку соединения
-	// Использовать db.Ping() для проверки
-	//return fmt.Errorf("not implemented")
-	// Пингуем базу данных, чтобы проверить соединение
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("нет соединения с базой данных: %w", err)
 	}
