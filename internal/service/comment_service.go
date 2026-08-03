@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	defaultLimit = 20
+	maxLimit     = 100
+)
+
 type CommentService struct {
 	commentRepo repository.CommentRepository
 	postRepo    repository.PostRepository
@@ -80,8 +85,6 @@ func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, e
 	if err != nil {
 		return nil, blogerrors.ErrCommentNotFound // Return a specific error if the comment is not found
 	}
-
-	// Step 2: Check if the comment exists
 	if comment == nil {
 		return nil, blogerrors.ErrCommentNotFound // Return a specific error if the comment is not found
 	}
@@ -94,11 +97,6 @@ func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, e
 
 	return comment, nil // 3. Вернуть результат или ErrCommentNotFound
 }
-
-const (
-	defaultLimit = 20
-	maxLimit     = 100
-)
 
 // Получить комментарии к посту с пагинацией
 func (s *CommentService) GetByPost(ctx context.Context, postID int, limit, offset int) ([]*model.Comment, int, error) {
@@ -141,7 +139,7 @@ func (s *CommentService) GetByPost(ctx context.Context, postID int, limit, offse
 // Обновить комментарий
 func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, req *model.CommentUpdateRequest) (*model.Comment, error) {
 	log.Fatalf("CommentService.Update")
-	// 1. Найти существующий комментарий
+
 	commentUpd, err := s.commentRepo.GetByID(ctx, CommentId)
 	if err != nil {
 		return nil, err // Возвращаем ошибку, если комментарий не найден
@@ -178,67 +176,21 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 }
 
 func (s *CommentService) Delete(ctx context.Context, id int, userID int) error {
-	// TODO: Удалить комментарий
-	// Шаги:
-	// 1. Найти комментарий и проверить существование
-	// 2. Проверить что userID является автором
-	// 3. Удалить через репозиторий
-	// 4. Вернуть соответствующую ошибку при неудаче
-	// 1. Найти комментарий и проверить существование
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
 		return err // Возвращаем ошибку, если комментарий не найден
 	}
 
-	// 2. Проверить, что userID является автором
 	if comment.AuthorID != userID {
 		return errors.New("user is not the author of the comment")
 	}
 
-	// 3. Удалить через репозиторий
 	err = s.commentRepo.Delete(ctx, id)
 	if err != nil {
 		return err // Возвращаем ошибку, если удаление не удалось
 	}
 
-	// 4. Возвращаем nil, если удаление прошло успешно
 	return nil //return fmt.Errorf("not implemented")
-}
-
-func (s *CommentService) GetByAuthor(ctx context.Context, authorID int, limit, offset int) ([]*model.Comment, int, error) {
-	// TODO: Получить комментарии конкретного автора
-	// Шаги:
-	// 1. Валидировать параметры пагинации
-	// 2. Получить комментарии автора через репозиторий
-	// 3. Получить общее количество комментариев автора
-	// 4. Опционально: добавить информацию об авторе
-	// 5. Вернуть результат с общим количеством
-	// 1. Валидировать параметры пагинации
-	if limit <= 0 {
-		return nil, 0, errors.New("limit must be greater than zero")
-	}
-	if offset < 0 {
-		return nil, 0, errors.New("offset cannot be negative")
-	}
-
-	//	** todo
-	//	// 2. Получить комментарии автора через репозиторий
-	//	comments, err := s.commentRepo.GetCommentsByAuthor(ctx, authorID, limit, offset)
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-	//
-	//	// 3. Получить общее количество комментариев автора
-	//	totalCount, err := s.commentRepo.GetTotalCommentsByAuthor(ctx, authorID)
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-	//
-	//	// 4. Опционально: добавить информацию об авторе (если необходимо)
-	//
-	//	// 5. Вернуть результат с общим количеством
-	//	return comments, totalCount, nil //
-	return nil, 0, fmt.Errorf("not implemented")
 }
 
 // validateCommentCreateRequest проверяет корректность данных для создания комментария

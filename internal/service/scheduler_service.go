@@ -74,7 +74,6 @@ func (s *SchedulerService) scheduler(ctx context.Context, jobs chan<- *model.Pos
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 
-	log.Println("\tScheduler ticker")
 	for {
 		select {
 		case <-s.stopChan:
@@ -97,7 +96,6 @@ func (s *SchedulerService) worker(ctx context.Context, id int, jobs <-chan *mode
 	log.Printf("Worker %d started", id)
 
 	for post := range jobs {
-		log.Println("\t worker post ...")
 		select {
 		case <-s.stopChan:
 			log.Printf("Worker %d received stop signal", id)
@@ -124,8 +122,6 @@ func (s *SchedulerService) processScheduledPosts(ctx context.Context, jobs chan<
 
 	if len(posts) > 0 {
 		log.Printf("  !Found %d posts ready for publication", len(posts))
-	} else {
-		log.Printf(" a posts to schedule were not found")
 	}
 
 	for _, post := range posts {

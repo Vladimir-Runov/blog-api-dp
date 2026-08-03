@@ -62,11 +62,6 @@ func (s *PostService) Create(ctx context.Context, userID int, req *model.PostCre
 }
 
 func (s *PostService) GetByID(ctx context.Context, id int) (*model.Post, error) {
-	// TODO: Получить пост по ID
-	// Шаги:
-	// 1. Получить пост через репозиторий
-	// 2. Опционально: загрузить информацию об авторе
-	// 3. Вернуть пост
 
 	post, err := s.postRepo.GetByID(ctx, id)
 	if err != nil {
@@ -85,13 +80,6 @@ func (s *PostService) GetByID(ctx context.Context, id int) (*model.Post, error) 
 }
 
 func (s *PostService) GetAll(ctx context.Context, limit, offset int) ([]*model.Post, int, error) {
-	// TODO: Получить список постов с пагинацией
-	// Шаги:
-	// 1. Валидировать и нормализовать параметры пагинации (limit по умолчанию 10, максимум 100)
-	// 2. Получить посты через репозиторий
-	// 3. Получить общее количество для пагинации
-	// 4. Опционально: обогатить данные информацией об авторах
-	// 5. Вернуть посты и общее количество
 
 	if limit <= 0 {
 		limit = 10 // default limit
@@ -129,14 +117,6 @@ func (s *PostService) GetAll(ctx context.Context, limit, offset int) ([]*model.P
 }
 
 func (s *PostService) Update(ctx context.Context, id int, userID int, req *model.PostUpdateRequest) (*model.Post, error) {
-	// TODO: Обновить пост
-	// Шаги:
-	// 1. Получить существующий пост
-	// 2. Проверить что userID является автором (иначе ErrForbidden)
-	// 3. Валидировать новые данные (если предоставлены)
-	// 4. Обновить только измененные поля
-	// 5. Сохранить через репозиторий
-	// 6. Вернуть обновленный пост
 
 	post, err := s.postRepo.GetByID(ctx, id)
 	if err != nil {
@@ -206,13 +186,6 @@ func (s *PostService) Delete(ctx context.Context, id int, userID int) error {
 }
 
 func (s *PostService) GetByAuthor(ctx context.Context, authorID int, limit, offset int) ([]*model.Post, int, error) {
-	// TODO: Получить посты конкретного автора
-	// Шаги:
-	// 1. Валидировать параметры пагинации
-	// 2. Получить посты автора через репозиторий
-	// 3. Получить общее количество постов автора
-	// 4. Опционально: добавить информацию об авторе к постам
-	// 5. Вернуть результат с общим количеством
 
 	if limit <= 0 {
 		return nil, 0, fmt.Errorf("invalid limit: must be greater than 0")
@@ -231,12 +204,7 @@ func (s *PostService) GetByAuthor(ctx context.Context, authorID int, limit, offs
 		return nil, 0, fmt.Errorf("failed to count posts by author: %w", err)
 	}
 
-	//	for _, post := range posts {
-	//		post.AuthorID =
-	//	}
-
 	return posts, totalPosts, nil
-	//return nil, 0, fmt.Errorf("not implemented")
 }
 
 // GetScheduledPosts получает отложенные посты (для админов)

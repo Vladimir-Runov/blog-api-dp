@@ -152,14 +152,6 @@ func (r *UserRepo) ExistsByUsername(ctx context.Context, username string) (bool,
 
 // Update обновляет данные пользователя
 func (r *UserRepo) Update(ctx context.Context, user *model.User) error {
-	// TODO: (Опционально) Реализовать обновление пользователя
-	// 1. Подготовить SQL запрос UPDATE users SET ... WHERE id = $X
-	// 2. Обновить updated_at = time.Now()
-	// 3. Выполнить запрос
-	// 4. Проверить, что запись была обновлена (RowsAffected)
-
-	//return fmt.Errorf("not implemented")
-	// Подготовить SQL запрос для обновления данных пользователя
 
 	query := `
         UPDATE users 

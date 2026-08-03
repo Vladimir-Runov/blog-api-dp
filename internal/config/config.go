@@ -37,7 +37,7 @@ func EnvloadConfig() *Config {
 		ServerHost:      getEnv("SERVER_HOST", "localhost"),
 		ServerPort:      getEnvAsInt("SERVER_PORT", 8080),
 		DBHost:          getEnv("DB_HOST", "localhost"),
-		DBPort:          getEnvAsInt("DB_PORT", 5432),
+		DBPort:          getEnvAsInt("DB_PORT", 5433),
 		DBUser:          getEnv("DB_USER", "bloguser"),
 		DBPassword:      getEnv("DB_PASSWORD", "postgres"),
 		DBName:          getEnv("DB_NAME", "blogdb"),

@@ -1,6 +1,8 @@
 package main
 
-// c:\Users\Admin\Documents\go\git_netology\blog-api-dp
+// https://github.com/Vladimir-Runov/blog-api-dp
+
+//  cd\blog-api-dp
 //  go test ./...
 
 import (

@@ -20,18 +20,24 @@ func NewPostRepo(db *sql.DB) *PostRepo {
 	return &PostRepo{db: db}
 }
 
+const PostRepo_createPostQuery = `INSERT INTO posts \(title, content, author_id, status, publish_at, created_at, updated_at\) VALUES \(\$1, \$2, \$3, \$4, \$5, \$6, \$7\) RETURNING id`
+const PostRepo_getPostByIDQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
+  FROM posts
+  WHERE id = $1 AND ( status = 'published' OR author_id = $2 )`
+const PostRepo_getllQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
+		FROM posts
+		WHERE status = 'published'
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
 // Create создает новый пост
 func (r *PostRepo) Create(ctx context.Context, post *model.Post) error {
 	now := time.Now()
 	post.CreatedAt = now
 	post.UpdatedAt = now
 
-	// Подготавливаем SQL запрос
-	query := `
-        INSERT INTO posts (title, content, author_id, status, publish_at, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-    `
+	query := PostRepo_createPostQuery
 
 	// Выполняем запрос и получаем ID созданной записи  err := r.db.QueryRowContext(ctx, query, ...).Scan(&post.ID)
 	err := r.db.QueryRowContext(ctx, query,
@@ -45,21 +51,21 @@ func (r *PostRepo) Create(ctx context.Context, post *model.Post) error {
 	if err != nil {
 		return fmt.Errorf("failed to create post: %w", err)
 	}
-	log.Panicf("Create post %s ", post.Title)
+	log.Printf("Create post %s ", post.Title)
 	return nil
 }
 
 // GetByID получает пост по ID
 func (r *PostRepo) GetByID(ctx context.Context, id int) (*model.Post, error) {
-	query := `
-        SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
-        FROM posts
-        WHERE id = $1
-    `
+	//		query := `
+	//	       SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
+	//	       FROM posts
+	//	       WHERE id = $1
+	//	   `
 
 	var post model.Post
 	// Выполняем запрос и просканируем результат в структуру Post
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, PostRepo_getPostByIDQuery, id).Scan(
 		&post.ID,
 		&post.Title,
 		&post.Content,
@@ -80,16 +86,9 @@ func (r *PostRepo) GetByID(ctx context.Context, id int) (*model.Post, error) {
 
 // GetAll получает все посты с пагинацией
 func (r *PostRepo) GetAll(ctx context.Context, limit, offset int) ([]*model.Post, error) {
-	query := `
-		SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
-		FROM posts
-		WHERE status = 'published'
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
-	`
 
 	// TODO: Выполнить запрос
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, PostRepo_getllQuery, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -187,8 +186,6 @@ func (r *PostRepo) Delete(ctx context.Context, id int) error {
 
 // Exists проверяет существование поста
 func (r *PostRepo) Exists(ctx context.Context, id int) (bool, error) {
-	// TODO: Реализовать проверку существования поста
-	// HINT: SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)
 
 	query := `SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)`
 
@@ -204,18 +201,15 @@ func (r *PostRepo) Exists(ctx context.Context, id int) (bool, error) {
 
 // GetTotalCount получает общее количество постов автора
 func (r *PostRepo) CountByAuthorID(ctx context.Context, authorID int) (int, error) {
-	// TODO: Реализовать подсчет  количества постов автора
-	// HINT: Используйте SELECT COUNT(*) FROM posts
-
 	query := `SELECT COUNT(*) FROM posts 
 				WHERE author_id = $1 
 				AND status = 'published'`
 
 	var count int
-	// TODO: Выполнить запрос и получить количество
+
 	err := r.db.QueryRowContext(ctx, query, authorID).Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get total count of posts by Author: %w", err) // Обработка ошибки
+		return 0, fmt.Errorf("failed to get total count of posts by AuthorID: %w", err) // Обработка ошибки
 	}
 
 	return count, nil // Возвращаем общее количество постов
@@ -230,7 +224,7 @@ func (r *PostRepo) GetByAuthorID(ctx context.Context, authorID int, limit, offse
 	query := `
         SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
         FROM posts
-        WHERE author_id = $1
+        WHERE author_id = $1 AND status = 'published'
         ORDER BY created_at DESC
         LIMIT $2 OFFSET $3
     `
@@ -264,11 +258,11 @@ func (r *PostRepo) GetByAuthorID(ctx context.Context, authorID int, limit, offse
 
 // GetScheduledPosts получает посты, готовые к публикации
 func (r *PostRepo) GetScheduledPosts(ctx context.Context) ([]*model.Post, error) {
-	log.Println("\t\tGetScheduledPosts(...)")
+
 	query := `
         SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
         FROM posts
-        WHERE status IN ('draft' , '' )
+        WHERE status = 'draft'
 		AND publish_at IS NOT NULL 
 		AND publish_at <= NOW()
         ORDER BY publish_at ASC

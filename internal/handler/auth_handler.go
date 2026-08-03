@@ -23,7 +23,7 @@ func NewAuthHandlerEx(userService *service.UserService) *AuthHandler {
 }
 
 // Register обрабатывает запрос на регистрацию нового пользователя
-// Реализовать обработку регистрации POST /api/register
+// POST /api/register
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// 1. Проверить метод запроса (должен быть POST)
 	if r.Method != http.MethodPost {
@@ -58,13 +58,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Вернуть JSON ответ с токеном (201 Created)
 	log.Printf("User registered successfully. Email: %s", req.Email)
-	w.WriteHeader(http.StatusCreated) // 201 Created при успешной регистрации
-	w.Header().Set("Content-Type", "application/json")
+
+	w.Header().Set("Content-Type", "application/json") // Заголовок  до отправки статуса
+	w.WriteHeader(http.StatusCreated)                  // 201 Created при успешной регистрации
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenResp.Token})
 }
 
 // Login обрабатывает запрос на вход пользователя
-// Реализовать обработку входа POST /api/login
+// вход POST /api/login
 // возвращает JSON с токеном при успешной аутентификации или ошибки: 405, 400, 401, 500
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 

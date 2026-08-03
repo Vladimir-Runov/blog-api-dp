@@ -24,6 +24,8 @@ func NewUserService(userRepo repository.UserRepository, jwtManager *auth.JWTMana
 	}
 }
 
+// возвращает ErrUserAlreadyExists при любой ошибке ExistsByEmail.
+// проверка  в тесте TestUserService_Register_EmailCheckError.
 func (s *UserService) Register(ctx context.Context, req *model.UserCreateRequest) (*model.TokenResponse, error) {
 	// Валидация входных данных
 	if err := req.Validate(); err != nil {

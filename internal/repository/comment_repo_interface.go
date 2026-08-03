@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"blog-api-dp/internal/model"
 	"context"
@@ -20,7 +19,7 @@ type CommentRepository interface {
 	// GetCountByPostID получает количество комментариев к посту
 	GetCountByPostID(ctx context.Context, postID int) (int, error)
 
-	// TODO: Реализовать методы Update и Delete при необходимости
 	Delete(ctx context.Context, id int) error
+
 	Update(ctx context.Context, comment *model.Comment) error
 }
