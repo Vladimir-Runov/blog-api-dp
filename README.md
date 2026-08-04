@@ -87,23 +87,99 @@
 └── README.md
 ```
 
+## Технологический стек
+
+### Инструменты
+
+· Go 1.23+ — основной язык разработки.  
+· PostgreSQL — реляционная база данных.  
+· Docker + Docker Compose 
+
+· Postman / curl — тестирование API.  
+· GitHub / GitLab / GitVerse — репозиторий.  
+· IDE VS Code + плагины Go.  
+
+### Библиотеки  
+· github.com/lib/pq — драйвер PostgreSQL  
+· github.com/golang-jwt/jwt/v5 — JWT  
+· golang.org/x/crypto/bcrypt — хеширование паролей  
+· github.com/joho/godotenv — работа с .env  
+· github.com/go-chi/chi/v5 или github.com/gin-gonic/gin — маршрутизация  
+· github.com/jmoiron/sqlx — удобная работа с SQL  
+
+### Технологический стек go
+- **Язык:** Go 1.24
+- **Аутентификация:** JWT (golang-jwt)
 
 
-
-## Запустить docker PostgreSQL
+## Начало работы
+### 1. Подготовка окружения
+```bash
+### Клонировать репозиторий и перейти в его папку.
+git clone https://github.com/Vladimir-Runov/blog-api-dp.git
+cd blog-api-dp
+### Скопировать конфигурацию и прописать свои значения
+cp .env.example .env
+### Установить Go зависимости
+go mod download
+```
+```bash
+###2. Запустить docker PostgreSQL
 docker-compose up -d
-## Проверить что БД работает на порту 5432: 'listening on IPv4 address "0.0.0.0", port 5432' (опционально)
+
+Подождать пока БД запустится.   
+Проверить что БД работает на порту 5432: 'listening on IPv4 address "0.0.0.0", port 5432' (опционально)
 docker-compose logs postgres
+```
 
-
-
-## запуск  
+## Запуск  
+по умолчанию, после запуска сервер будет доступен на `http://localhost:8080`  
+```bash
+### Запустить приложение 
 go run cmd/api/main.go
+### Запустить приложение с race detector 
+go run -race ./cmd/api/main.go
+### собрать и запустить
+go build -o api ./cmd/api/main.go
+./api
+```
 
-## Остановить  
-docker-compose down  
-## Очистить данные БД  
-docker-compose down -v  
+
+
+
+### 4. полезные команды Docker контейнеризация
+```bash
+### Запустить всё через Docker Compose
+docker-compose up --build
+### Остановить
+docker-compose down
+### Очистить данные БД
+docker-compose down -v
+```
+
+## Разработка
+### Публичные адреса
+```
+GET    /api/health                     # Проверка здоровья приложения  
+POST   /api/register                 # Регистрация нового пользователя  
+POST   /api/login                      # Вход пользователя  
+GET    /api/posts                       # Получить все посты  
+GET    /api/posts/{id}                 # Получить пост по ID
+GET    /api/posts/{postId}/comments    # Получить комментарии к посту
+```
+
+### Защищенные адреса (требуют Authorization: Bearer <token>)
+```
+POST   /api/posts                      # Создать пост
+PUT    /api/posts/{id}                 # Обновить пост
+DELETE /api/posts/{id}                 # Удалить пост
+POST   /api/posts/{postId}/comments    # Добавить комментарий
+PUT    /api/comments/{id}              # Обновить комментарий
+DELETE /api/comments/{id}              # Удалить комментарий
+```
+
+
+
 
 ## Тестирование
 
