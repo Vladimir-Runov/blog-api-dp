@@ -178,7 +178,28 @@ PUT    /api/comments/{id}              # Обновить комментарий
 DELETE /api/comments/{id}              # Удалить комментарий
 ```
 
+## Планировщик отложенной публикации  
+1. При создании поста с указанием `publish_at` в будущем, пост сохраняется в статусе "draft"  
+2. Планировщик каждые 30 секунд проверяет посты со статусом "draft" и временем публикации ранее текущего времени, такие  посты автоматически 'публикуются' (статус   меняется на "published", поле publish_at устанавливается в NULL)
+4. Обработка публикации отложенных постов происходит конкурентно с использованием worker pool (5 воркеров по умолчанию)  
+5. Все операции логируются для отслеживания процесса  
+  
+### Параметры планировщика (настраивается в коде)  
+- Интервал проверки: 30 секунд   
+- Количество воркеров: 5   
+- Планировщик корректно завершается при остановке сервиса (graceful shutdown)  
 
+### Пример использования. Создание поста с отложенной публикацией:
+```bash
+curl -X POST http://localhost:8080/api/posts \
+  -H "Authorization: Bearer <токен>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "заголовок отложенного поста",
+    "content": "Этот пост будет опубликован в 13:22  01.08,2026,
+    "publish_at": "2026-08-01T13:22:23Z"
+  }'
+```
 
 
 ## Тестирование
@@ -198,4 +219,139 @@ go test -race ./...
 # Посмотреть покрытие тестами
 go test ./... -cover
 ```
+
+/cmd/api             coverage: 0.0% of statements
+/internal/config			3.294s  coverage: 100.0% of statements
+/internal/erros			4.181s  coverage: 100.0% of statements
+/internal/handler			2.923s  coverage: 19.9% of statements
+/internal/middleware 			1.565s  coverage: 71.1% of statements
+/internal/repository		1.272s  coverage: 62.2% of statements
+/internal/service			4.434s  coverage: 63.0% of statements
+/pkg/auth			1.335s  coverage: 41.2% of statements
+/pkg/database			0.999s  coverage: 10.1% of statements
+
+## Архитектура приложения
+
+Проект использует чистую архитектуру с разделением ответственности:
+
+```
+┌─────────────────┐
+│  HTTP Requests  │
+└────────┬────────┘
+         │
+┌────────▼────────────────────────┐
+│ Middleware (Auth, Logging, CORS)│
+└────────┬────────────────────────┘
+         │
+┌────────▼─────────────┐
+│ Handlers (HTTP API)  │ ← Парсинг JSON, валидация, HTTP коды
+└────────┬─────────────┘
+         │
+┌────────▼──────────────┐
+│ Services (Business)   │ ← Бизнес-логика, валидация, права
+└────────┬──────────────┘
+         │
+┌────────▼─────────────┐
+│ Repositories (Data)  │ ← SQL запросы, работа с БД
+└────────┬─────────────┘
+         │
+┌────────▼────────┐
+│  PostgreSQL DB  │
+└─────────────────┘
+```
+
+### Docker образы
+
+- **API:** golang:1.24-alpine → компиляция → alpine:latest (многоэтапная сборка)
+- **База данных:** postgres:15
+- **Сеть:** bridge с именем blog-network
+- **Том:** postgres_data для сохранения данных
+
+### Миграции
+
+1. **001_init_schema.sql** - создаёт таблицы users, posts, comments
+2. **002_index.sql** - добавляет индексы к созданным таблицам.
+
+Миграции запускаются автоматически при старте приложения.
+
+## Конфигурация
+Переменные окружения задаются в файле `.env`:
+
+```env
+# Server Configuration
+SERVER_PORT=8080
+SERVER_HOST=localhost
+
+# Database Configuration, port redirected !
+DB_HOST=localhost
+DB_PORT=5433
+DB_USER=bloguser
+DB_PASSWORD=postgres
+DB_NAME=blogdb
+DB_SSLMODE=disable
+
+# JWT Configuration
+JWT_SECRET=our-secret-key-change-in-production
+JWT_EXPIRY_HOURS=2
+
+# Application Configuration
+APP_ENV=development
+LOG_LEVEL=debug
+
+# Cache Configuration
+CACHE_TTL_MINUTES=5
+```
+
+
+## Полезные команды
+
+```bash
+# Скачать и обновить зависимости
+go mod download
+go mod tidy
+
+# Запустить приложение
+go run -race ./cmd/api/main.go
+
+# Собрать приложение
+go build -o api ./cmd/api/main.go
+
+# Запустить тесты
+go test ./... -v
+
+# Просмотреть логи БД
+docker-compose logs db -f
+
+# Подключиться к БД
+docker-compose exec db psql -U postgres -d blog_db
+
+# Остановить все сервисы
+docker-compose down
+
+# Очистить данные БД
+docker-compose down -v
+```
+
+## SQL запросы для ручного тестирования
+
+```sql
+-- Подключиться к БД
+docker-compose exec db psql -U postgres -d blog_db
+
+-- Просмотреть таблицы
+\dt
+
+-- Просмотреть пользователей
+SELECT id, username, email, created_at FROM users;
+
+-- Просмотреть посты
+SELECT id, title, status, author_id, created_at FROM posts;
+
+-- Просмотреть комментарии
+SELECT id, content, post_id, author_id, created_at FROM comments;
+
+-- Проверить посты в статусе draft
+SELECT id, title, status, publish_at FROM posts WHERE status = 'draft';
+```
+
 
