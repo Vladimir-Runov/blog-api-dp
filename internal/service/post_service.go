@@ -1,11 +1,13 @@
 package service
 
 import (
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/repository"
 	"blog-api-dp/pkg/auth"
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -25,7 +27,6 @@ func NewPostService(postRepo repository.PostRepository, userRepo repository.User
 
 // TODO: Создать новый пост
 func (s *PostService) Create(ctx context.Context, userID int, req *model.PostCreateRequest) (*model.Post, error) {
-
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -54,8 +55,10 @@ func (s *PostService) Create(ctx context.Context, userID int, req *model.PostCre
 	}
 
 	err := s.postRepo.Create(ctx, post)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to save post: %w", err)
+
+		return nil, fmt.Errorf("!!! failed to save post: %w", err)
 	}
 
 	return post, nil
@@ -123,16 +126,18 @@ func (s *PostService) Update(ctx context.Context, id int, userID int, req *model
 		return nil, fmt.Errorf("failed to get post: %w", err)
 	}
 	if post == nil {
-		return nil, fmt.Errorf("post not found")
+		return nil, blogerrors.ErrPostNotFound // Возвращаем ошибку, если пост не найден
 	}
 
 	// Step 2: Check that userID is the author
 	if post.AuthorID != userID {
-		return nil, fmt.Errorf("forbidden: you are not the author of this post")
+		log.Printf("PostServ: forbidden: you are not the author of this post")
+		return nil, blogerrors.ErrForbidden // fix: Возвращаем ErrForbidden 403
 	}
 
 	// Step 3: Validate new data (if provided)
 	if err := validatePostUpdateRequest(req); err != nil {
+		log.Printf("PostServ:validation error")
 		return nil, fmt.Errorf("validation error: %w", err)
 	}
 

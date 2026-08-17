@@ -15,8 +15,14 @@ import (
 
 // = "migrations"
 func getMigrationQueries(migrationsDir string) ([]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Printf("Failed to get current directory: %v", err)
+	} else {
+		log.Printf("Looking for migrations in dif: %s  %s", cwd, migrationsDir)
+	}
 
-	log.Printf("Looking for migrations in: %s", migrationsDir)
+	log.Printf(".. Looking for migrations in: %s", migrationsDir)
 
 	files, err := os.ReadDir(migrationsDir)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/repository"
 	"blog-api-dp/pkg/auth"

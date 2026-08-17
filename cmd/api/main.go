@@ -36,6 +36,10 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found, using default environment variables")
 	}
+	dir := `C:\Users\Admin\Documents\go\git_netology\blog-api-dp`
+	if err := os.Chdir(dir); err != nil {
+		log.Fatalf("Не удалось перейти в каталог %q: %v", dir, err)
+	}
 
 	cfg := config.EnvloadConfig() //  конфигурацию из переменных окружения
 	db, err := database.NewPostgresDB(database.Config{
@@ -97,7 +101,7 @@ func main() {
 	router.Get("/api/posts", postHandler.GetAll)                         // - GET /api/posts
 	router.Get("/api/posts/{id}", postHandler.GetByID)                   // - GET /api/posts/{id}
 	router.Get("/api/comments/{id}", commentHandler.GetByID)             // - GET /api/comments/{id}
-	router.Get("/api/posts/{postId}/comments", commentHandler.GetByPost) //	· получение комментариев к посту (GET /api/posts/{postId}/comments) — доступно всем.
+	router.Get("/api/posts/{postId}/comments", commentHandler.GetByPost) //	· GET /api/posts/{postId}/comments   получение комментариев к посту
 
 	authMiddleware := middlewareauth.NewAuthMiddleware(jwtManager) // middlewareauth “blog-example-go-restapi/internal/middleware”
 
@@ -105,8 +109,9 @@ func main() {
 	router.Put("/api/posts/{id}", authMiddleware.RequireAuth(postHandler.Update))    // - PUT /api/posts/{id} (требует JWT) обновление поста (PUT /api/posts/{id}) — только автор;
 	router.Delete("/api/posts/{id}", authMiddleware.RequireAuth(postHandler.Delete)) // - DELETE /api/posts/{id} (требует JWT)
 
-	router.Post("/api/posts/{postId}/comments", authMiddleware.RequireAuth(commentHandler.Create)) // создание комментария по заданию должно идти через путь /api/posts/{postId}/comments
-	router.Put("/api/posts/{postId}/comments", authMiddleware.RequireAuth(commentHandler.Update))  //
+	router.Post("/api/posts/{postId}/comments", authMiddleware.RequireAuth(commentHandler.Create)) // создание комментария  /api/posts/{postId}/comments
+	router.Put("/api/comments/{Id}", authMiddleware.RequireAuth(commentHandler.Update))            // PUT /api/comments/{id} (требует JWT) обновление комментария
+	router.Delete("/api/comments/{id}", authMiddleware.RequireAuth(commentHandler.Delete))         // - DELETE /api/comments/{id} (требует JWT)
 
 	// Контекст для graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,10 +123,10 @@ func main() {
 
 	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
 	log.Printf("Starting server on %s...", addr)
-	// - Запустить сервер и обработать ошибки
-	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatalf("Could not start server: %v", err)
-	}
+
+	//	if err := http.ListenAndServe(addr, router); err != nil {
+	//		log.Fatalf("Could not start server: %v", err)
+	//	}
 
 	server := &http.Server{
 		Addr:    cfg.ServerHost + ":" + strconv.Itoa(cfg.ServerPort),

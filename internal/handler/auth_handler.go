@@ -1,7 +1,7 @@
 package handler
 
 import (
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/middleware"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/service"

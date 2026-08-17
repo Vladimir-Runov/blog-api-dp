@@ -445,7 +445,6 @@ func TestCommentService_Create(t *testing.T) {
 ////
 
 func TestCommentService_UpdateComment(t *testing.T) {
-	return
 	tests := []struct {
 		name          string
 		id            int
@@ -665,7 +664,6 @@ func TestCommentService_UpdateComment(t *testing.T) {
 }
 
 func TestCommentService_DeleteComment(t *testing.T) {
-	return
 	tests := []struct {
 		name          string
 		id            int

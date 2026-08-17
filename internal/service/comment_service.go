@@ -1,7 +1,7 @@
 package service
 
 import (
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/repository"
 	"context"
@@ -80,6 +80,7 @@ func (s *CommentService) Create(ctx context.Context, userID int, req *model.Comm
 
 // TODO: Получить комментарий по ID
 func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, error) {
+	log.Printf("\t(s *CommentService) GetByID(....")
 	// 1. Получить комментарий через репозиторий
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -138,8 +139,7 @@ func (s *CommentService) GetByPost(ctx context.Context, postID int, limit, offse
 
 // Обновить комментарий
 func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, req *model.CommentUpdateRequest) (*model.Comment, error) {
-	log.Fatalf("CommentService.Update")
-
+	log.Printf("\t(s *CommentService) Update(....")
 	commentUpd, err := s.commentRepo.GetByID(ctx, CommentId)
 	if err != nil {
 		return nil, err // Возвращаем ошибку, если комментарий не найден

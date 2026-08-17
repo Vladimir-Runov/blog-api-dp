@@ -1,7 +1,7 @@
 package handler
 
 import (
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/service"
 	"encoding/json"
@@ -133,11 +133,7 @@ func (h *CommentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // curl -X GET "http://localhost:8080/api/posts/1/comments" -H "Authorization: Bearer " -H "Content-Type: application/json"
 // Не требует аутентификации
 func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
-	// TODO: Реализовать получение комментариев к посту
-	// HINT: Последовательность действий:
-
-	// 1. Проверить метод запроса (должен быть GET)
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet { // (должен быть GET)
 		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -211,21 +207,18 @@ func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
 // PUT /api/comments/{id}
 // Требует аутентификации, может обновить только автор
 func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
-	log.Fatalf("CommentHandler.Update")
-	// 1. Проверить метод запроса (должен быть PUT)
+	log.Printf("PUT /api/comments/{id}: Edit comment...")
 	if r.Method != http.MethodPut {
 		blogerrors.ReplyJsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 2. Получить ID пользователя из контекста
 	userID, ok := getUserIDFromContext(r.Context())
 	if !ok {
 		blogerrors.ReplyJsonError(w, "Unauthorized (comment.Update)", http.StatusUnauthorized)
 		return
 	}
 
-	// 3. Извлечь ID комментария из URL
 	idStr := extractIDFromPath(r.URL.Path, "/api/comments/")
 	commentID, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -233,7 +226,7 @@ func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("\tUser Id: %d updfting comment %d", userID, commentID)
+	log.Printf("\tUser Id: %d updating comment %d", userID, commentID)
 
 	// 4. Декодировать тело запроса
 	var req model.CommentUpdateRequest
@@ -242,6 +235,7 @@ func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.CommentID = commentID
+	log.Printf("\tcall srv")
 
 	// 5. Обновить комментарий через сервис
 	comment, err := h.commentService.Update(r.Context(), commentID, userID, &req)
@@ -261,6 +255,49 @@ func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(comment)
+}
+
+func (h *CommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	log.Printf("DELETE /api/comments/{id}: Deleting post")
+
+	if r.Method != http.MethodDelete {
+		blogerrors.ReplyJsonError(w, "Method Not Allowed", http.StatusMethodNotAllowed) // 405 Method Not Allowed
+		return
+	}
+
+	userID, ok := getUserIDFromContext(r.Context())
+	if !ok {
+		blogerrors.ReplyJsonError(w, "Unauthorized (Delete)", http.StatusUnauthorized) // 401 Unauthorized
+		return
+	}
+
+	idStr := extractIDFromPath(r.URL.Path, "/api/comments/")
+	CommentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("Invalid comment ID: %v", err)
+		blogerrors.ReplyJsonError(w, "Invalid comment ID", http.StatusBadRequest) // 400 Bad Request
+		return
+	}
+
+	err = h.commentService.Delete(r.Context(), CommentID, userID)
+	if err != nil { // 5. Обработать ошибки (404 для не найден, 403 для чужого )
+		if err == blogerrors.ErrPostNotFound {
+			log.Printf("Post not found: %v", err)
+			blogerrors.ReplyJsonError(w, "Comment not found", http.StatusNotFound) //  404 при отсутствии .
+			return
+		}
+		if err == blogerrors.ErrForbidden {
+			log.Printf("Forbidden access attempt to delete Comment")
+			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) //  403 при попытке удалить чужой.
+			return
+		}
+		log.Printf("Internal server error: %v", err)
+		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError) // 500 Internal Server Error
+		return
+	}
+
+	// Вернуть 204 No Content при успехе
+	w.WriteHeader(http.StatusNoContent) // 204 No Content
 }
 
 // extractIDFromPath извлекает ID из указанного пути, удаляя заданный префикс.

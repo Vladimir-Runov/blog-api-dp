@@ -3,7 +3,7 @@ package handler
 // https://github.com/Vladimir-Runov/blog-api-dp
 
 import (
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"blog-api-dp/internal/service"
 	"encoding/json"
@@ -209,15 +209,20 @@ func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Обновляем через postService.Update
 	updatedPost, err := h.postService.Update(r.Context(), postID, userID, &req)
-	if err != nil { // 6. Обработать ошибки (404 для не найден, 403 для чужого поста)
+	if err != nil { // Обработать ошибки (404 для не найден, 403 для чужого поста)
+		log.Printf("F1")
 		if errors.Is(err, blogerrors.ErrPostNotFound) {
+			log.Printf("F2")
 			blogerrors.ReplyJsonError(w, "Post Not Found", http.StatusNotFound) // 404 при отсутствии поста.
 			return
 		}
+		log.Printf("F3")
 		if errors.Is(err, blogerrors.ErrForbidden) {
+			log.Printf("F4")
 			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) // 403 при попытке обновить чужой пост.
 			return
 		}
+		log.Printf("F9")
 		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

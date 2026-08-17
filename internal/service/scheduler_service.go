@@ -80,7 +80,7 @@ func (s *SchedulerService) scheduler(ctx context.Context, jobs chan<- *model.Pos
 			log.Println("\tScheduler received stop signal")
 			return
 		case <-ticker.C:
-			log.Println("\tScheduler ticker processScheduledPosts ...")
+//			log.Println("\tScheduler ticker processScheduledPosts ...")
 			s.processScheduledPosts(ctx, jobs)
 		case <-ctx.Done():
 			log.Println("Scheduler context cancelled")

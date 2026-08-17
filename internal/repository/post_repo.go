@@ -1,12 +1,11 @@
 package repository
 
 import (
-	blogerrors "blog-api-dp/internal/erros"
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/internal/model"
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -20,27 +19,13 @@ func NewPostRepo(db *sql.DB) *PostRepo {
 	return &PostRepo{db: db}
 }
 
-const PostRepo_createPostQuery = `INSERT INTO posts \(title, content, author_id, status, publish_at, created_at, updated_at\) VALUES \(\$1, \$2, \$3, \$4, \$5, \$6, \$7\) RETURNING id`
-const PostRepo_getPostByIDQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
-  FROM posts
-  WHERE id = $1 AND ( status = 'published' OR author_id = $2 )`
-const PostRepo_getllQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
-		FROM posts
-		WHERE status = 'published'
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
-	`
-
 // Create создает новый пост
 func (r *PostRepo) Create(ctx context.Context, post *model.Post) error {
 	now := time.Now()
 	post.CreatedAt = now
 	post.UpdatedAt = now
 
-	query := PostRepo_createPostQuery
-
-	// Выполняем запрос и получаем ID созданной записи  err := r.db.QueryRowContext(ctx, query, ...).Scan(&post.ID)
-	err := r.db.QueryRowContext(ctx, query,
+	err := r.db.QueryRowContext(ctx, PostRepo_createPostQuery,
 		post.Title,
 		post.Content,
 		post.AuthorID,
@@ -49,11 +34,33 @@ func (r *PostRepo) Create(ctx context.Context, post *model.Post) error {
 		post.CreatedAt,
 		post.UpdatedAt).Scan(&post.ID)
 	if err != nil {
+		//log.Printf("QueryRowContext: %v", err)
 		return fmt.Errorf("failed to create post: %w", err)
 	}
-	log.Printf("Create post %s ", post.Title)
+
+	//log.Printf("Created post %s ", post.Title)
 	return nil
 }
+
+// const PostRepo_createPostQuery = `INSERT INTO posts (title, content, author_id, status, publish_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+const PostRepo_createPostQuery = `
+ INSERT INTO posts (
+  title,
+  content,
+  author_id,
+  status,
+  publish_at,
+  created_at,
+  updated_at
+ )
+ VALUES ($1, $2, $3, $4, $5, $6, $7)
+ RETURNING id
+`
+
+const PostRepo_getPostByIDQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
+ FROM posts
+ WHERE id = $1
+`
 
 // GetByID получает пост по ID
 func (r *PostRepo) GetByID(ctx context.Context, id int) (*model.Post, error) {
@@ -62,9 +69,9 @@ func (r *PostRepo) GetByID(ctx context.Context, id int) (*model.Post, error) {
 	//	       FROM posts
 	//	       WHERE id = $1
 	//	   `
-
+	//log.Printf("(r *PostRepo) GetByID SQL: %q", PostRepo_getPostByIDQuery)
 	var post model.Post
-	// Выполняем запрос и просканируем результат в структуру Post
+	//
 	err := r.db.QueryRowContext(ctx, PostRepo_getPostByIDQuery, id).Scan(
 		&post.ID,
 		&post.Title,
@@ -78,17 +85,24 @@ func (r *PostRepo) GetByID(ctx context.Context, id int) (*model.Post, error) {
 		if err == sql.ErrNoRows {
 			return nil, blogerrors.ErrPostNotFound // Возвращаем ошибку, если пост не найден
 		}
-		return nil, fmt.Errorf("failed to get post: %w", err) // Обработка других ошибок
+		return nil, fmt.Errorf("GetByID failed to get post: %w", err) // Обработка других ошибок
 	}
 
 	return &post, nil // Возвращаем найденный пост
 }
 
+const PostRepo_getallQuery = `SELECT id, title, content, author_id, status, publish_at, created_at, updated_at
+ FROM posts
+ WHERE status = 'published'
+ ORDER BY created_at DESC
+ LIMIT $1 OFFSET $2
+`
+
 // GetAll получает все посты с пагинацией
 func (r *PostRepo) GetAll(ctx context.Context, limit, offset int) ([]*model.Post, error) {
 
 	// TODO: Выполнить запрос
-	rows, err := r.db.QueryContext(ctx, PostRepo_getllQuery, limit, offset)
+	rows, err := r.db.QueryContext(ctx, PostRepo_getallQuery, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -104,7 +118,7 @@ func (r *PostRepo) GetAll(ctx context.Context, limit, offset int) ([]*model.Post
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		log.Printf("\t\t post: %+v", post) //
+		//log.Printf("\t\t post: %+v", post) //
 		posts = append(posts, &post)
 	}
 
@@ -289,20 +303,20 @@ func (r *PostRepo) GetScheduledPosts(ctx context.Context) ([]*model.Post, error)
 		)
 
 		if err != nil {
-			log.Printf("\t\tGetScheduledPosts( failed to scan post...")
+			//log.Printf("\t\tGetScheduledPosts( failed to scan post...")
 			return nil, fmt.Errorf("failed to scan post: %w", err)
 		}
 
-		log.Printf("\t\tGetScheduledPosts( + post: %d", post.ID)
+		//log.Printf("\t\tGetScheduledPosts( + post: %d", post.ID)
 		posts = append(posts, &post)
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Printf("\t\tGetScheduledPosts( failed to iterate posts")
+		//log.Printf("\t\tGetScheduledPosts( failed to iterate posts")
 		return nil, fmt.Errorf("failed to iterate posts: %w", err)
 	}
 
-	log.Printf("\t\tGetScheduledPosts( return ")
+	//log.Printf("\t\tGetScheduledPosts( return ")
 	return posts, nil // Всегда возвращаем срез, даже если он пустой
 }
 
