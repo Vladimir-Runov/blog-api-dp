@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	defaultLimit = 20
-	maxLimit     = 100
+	ConstDefaultLimit = 20
+	ConstMaxLimit     = 100
 )
 
 type CommentService struct {
@@ -81,7 +81,7 @@ func (s *CommentService) Create(ctx context.Context, userID int, req *model.Comm
 // TODO: Получить комментарий по ID
 func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, error) {
 	log.Printf("\t(s *CommentService) GetByID(....")
-	// 1. Получить комментарий через репозиторий
+
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, blogerrors.ErrCommentNotFound // Return a specific error if the comment is not found
@@ -103,10 +103,10 @@ func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, e
 func (s *CommentService) GetByPost(ctx context.Context, postID int, limit, offset int) ([]*model.Comment, int, error) {
 	// 1. Валидировать параметры пагинации (limit по умолчанию 20, максимум 100)
 	if limit <= 0 {
-		limit = defaultLimit
+		limit = ConstDefaultLimit
 	}
-	if limit > maxLimit {
-		limit = maxLimit
+	if limit > ConstMaxLimit {
+		limit = ConstMaxLimit
 	}
 
 	// 2. Опционально: проверить существование поста
@@ -142,14 +142,14 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 	log.Printf("\t(s *CommentService) Update(....")
 	commentUpd, err := s.commentRepo.GetByID(ctx, CommentId)
 	if err != nil {
-		return nil, err // Возвращаем ошибку, если комментарий не найден
+		return nil, blogerrors.ErrCommentNotFound // Return a specific error if the comment is not found
 	}
 
 	log.Printf("Comment author id %d,  %d user id from context", commentUpd.AuthorID, userID)
 	// 2. Проверить что userID является автором (иначе ErrForbidden)
 	if commentUpd.AuthorID != userID {
 		log.Printf("Comment author id %d <> %d user id from context", commentUpd.AuthorID, userID)
-		return nil, blogerrors.ErrForbidden // fix: Возвращаем ErrForbidden 403 при попытке редактировать чужой пост,
+		return nil, blogerrors.ErrForbidden // fix: Возвращаем ErrForbidden 403 при попытке редактировать чужой коммент
 	}
 
 	// 3. Валидировать новый content
@@ -178,11 +178,11 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 func (s *CommentService) Delete(ctx context.Context, id int, userID int) error {
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
-		return err // Возвращаем ошибку, если комментарий не найден
+		return blogerrors.ErrCommentNotFound // Возвращаем специфическую ошибку, если комментарий не найден
 	}
 
 	if comment.AuthorID != userID {
-		return errors.New("user is not the author of the comment")
+		return blogerrors.ErrForbidden // Возвращаем ErrForbidden, если пользователь не является автором комментария
 	}
 
 	err = s.commentRepo.Delete(ctx, id)

@@ -64,6 +64,7 @@ func (r *CommentRepo) GetByID(ctx context.Context, id int) (*model.Comment, erro
 		if err == sql.ErrNoRows {
 			return nil, blogerrors.ErrCommentNotFound
 		}
+
 		return nil, fmt.Errorf("failed to get comment: %w", err)
 	}
 
@@ -71,7 +72,7 @@ func (r *CommentRepo) GetByID(ctx context.Context, id int) (*model.Comment, erro
 }
 
 // GetByPostID получает комментарии к посту с пагинацией
-func (r *CommentRepo) GetByPostID(ctx context.Context, postID int, limit int, page int) ([]*model.Comment, error) {
+func (r *CommentRepo) GetByPostID(ctx context.Context, postID int, limit int, offset int) ([]*model.Comment, error) {
 	query := `
 		SELECT id, content, post_id, author_id, created_at, updated_at
 		FROM comments
@@ -79,14 +80,7 @@ func (r *CommentRepo) GetByPostID(ctx context.Context, postID int, limit int, pa
 		ORDER BY created_at ASC
 		LIMIT $2 OFFSET $3
 	`
-	if page < 1 {
-		page = 1
-	}
-
-	if limit <= 0 {
-		limit = 10
-	}
-	rows, err := r.db.QueryContext(ctx, query, postID, limit, (page-1)*limit)
+	rows, err := r.db.QueryContext(ctx, query, postID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get comments: %w", err)
 	}

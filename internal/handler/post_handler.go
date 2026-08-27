@@ -51,7 +51,7 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	post, err := h.postService.Create(r.Context(), userID, &req)
 	if err != nil {
-		blogerrors.ReplyJsonError(w, "Failed to create post", http.StatusInternalServerError)
+		blogerrors.ReplyJsonError(w, "Failed to create post", http.StatusBadRequest) // 400 (было 500)
 		return
 	}
 
@@ -210,20 +210,18 @@ func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// 5. Обновляем через postService.Update
 	updatedPost, err := h.postService.Update(r.Context(), postID, userID, &req)
 	if err != nil { // Обработать ошибки (404 для не найден, 403 для чужого поста)
-		log.Printf("F1")
+
 		if errors.Is(err, blogerrors.ErrPostNotFound) {
-			log.Printf("F2")
 			blogerrors.ReplyJsonError(w, "Post Not Found", http.StatusNotFound) // 404 при отсутствии поста.
 			return
 		}
-		log.Printf("F3")
+
 		if errors.Is(err, blogerrors.ErrForbidden) {
-			log.Printf("F4")
 			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) // 403 при попытке обновить чужой пост.
 			return
 		}
-		log.Printf("F9")
-		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError)
+
+		blogerrors.ReplyJsonError(w, "Failed to Update ", http.StatusBadRequest) // 400 Bad Request
 		return
 	}
 

@@ -129,6 +129,7 @@ func TestCommentService_GetByID(t *testing.T) {
 	}
 }
 
+// Получить комментарии к посту с пагинацией
 func TestCommentService_GetByPost(t *testing.T) {
 	now := time.Now()
 
@@ -154,7 +155,7 @@ func TestCommentService_GetByPost(t *testing.T) {
 	tests := []struct {
 		name           string
 		postID         int
-		page           int
+		offset         int
 		limit          int
 		expectedOutput []*model.Comment
 		expectedCount  int
@@ -164,7 +165,7 @@ func TestCommentService_GetByPost(t *testing.T) {
 		{
 			name:           "success",
 			postID:         1,
-			page:           1,
+			offset:         1,
 			limit:          10,
 			expectedOutput: expectedComments,
 			expectedCount:  2,
@@ -203,7 +204,7 @@ func TestCommentService_GetByPost(t *testing.T) {
 					)
 
 				mock.ExpectQuery(".*").
-					WithArgs(1, 10, 0).
+					WithArgs(1, 10, 1).
 					WillReturnRows(rows)
 
 				mock.ExpectQuery(".*").
@@ -217,7 +218,7 @@ func TestCommentService_GetByPost(t *testing.T) {
 		{
 			name:           "post not found",
 			postID:         999,
-			page:           1,
+			offset:         1,
 			limit:          10,
 			expectedOutput: nil,
 			expectedCount:  0,
@@ -238,8 +239,6 @@ func TestCommentService_GetByPost(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 
-			// Не используем require.NoError(db.Close()),
-			// так как sqlmock без ExpectClose() возвращает ошибку.
 			defer func() {
 				_ = db.Close()
 			}()
@@ -251,21 +250,22 @@ func TestCommentService_GetByPost(t *testing.T) {
 			repoUser := repository.NewUserRepo(db)
 
 			serviceComm := NewCommentService(repoCmnt, repoPost, repoUser)
+
 			gotComments, gotCount, err := serviceComm.GetByPost(
 				context.Background(),
 				tt.postID,
 				tt.limit,
-				tt.page,
+				tt.offset,
 			)
 
 			if tt.expectedError {
 				require.Error(t, err)
-				require.Empty(t, gotComments)
-				require.Zero(t, gotCount)
+				assert.Nil(t, gotComments)
+				assert.Equal(t, tt.expectedCount, gotCount)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedOutput, gotComments)
-				require.Equal(t, tt.expectedCount, gotCount)
+				assert.Equal(t, tt.expectedOutput, gotComments)
+				assert.Equal(t, tt.expectedCount, gotCount)
 			}
 
 			require.NoError(t, mock.ExpectationsWereMet())

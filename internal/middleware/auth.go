@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	blogerrors "blog-api-dp/internal/errors"
 	"blog-api-dp/pkg/auth"
 	"context"
 	"encoding/json"
@@ -39,13 +40,15 @@ func (m *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 1. Извлечь токен из заголовка Authorization (Bearer токен)
 		tokenString := extractToken(r)
 		if tokenString == "" {
-			http.Error(w, "Unauthorized...Missing token", http.StatusUnauthorized)
+			//			http.Error(w, "Unauthorized...Missing token", http.StatusUnauthorized)
+			blogerrors.ReplyJsonError(w, "Unauthorized...missing token", http.StatusUnauthorized) //
 			return
 		}
 		// 2. Валидировать токен через jwtManager
 		claims, err := m.jwtManager.ValidateToken(tokenString)
 		if err != nil { // 3. Обработать ошибки валидации
-			http.Error(w, "Unauthorized...Invalid token ("+err.Error()+")", http.StatusUnauthorized)
+			//			http.Error(w, "Unauthorized...Invalid token ("+err.Error()+")", http.StatusUnauthorized)
+			blogerrors.ReplyJsonError(w, "Unauthorized...Invalid token ("+err.Error()+")", http.StatusUnauthorized) //
 			return
 		}
 
@@ -164,7 +167,8 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 	// Сериализуем объект в JSON и отправляем его
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		// Если произошла ошибка при кодировании, отправляем стандартную ошибку
-		http.Error(w, "Internal Server Error (22)", http.StatusInternalServerError)
+		//http.Error(w, "Internal Server Error (22)", http.StatusInternalServerError)
+		blogerrors.ReplyJsonError(w, "Internal server error.", http.StatusInternalServerError) //
 	}
 }
 

@@ -8,7 +8,7 @@ package main
 import (
 	"blog-api-dp/internal/config"
 	"blog-api-dp/internal/handler"
-	middlewareauth "blog-api-dp/internal/middleware"
+	"blog-api-dp/internal/middleware"
 	"blog-api-dp/internal/repository"
 	"blog-api-dp/internal/service"
 	"blog-api-dp/pkg/auth"
@@ -20,7 +20,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	//"github.com/go-chi/chi/v5/middleware"
 
 	"context"
 	"syscall"
@@ -75,6 +75,10 @@ func main() {
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 
+	// Middleware
+	loggingMiddleware := middleware.NewLoggingMiddleware(log.New(os.Stdout, "", log.LstdFlags))
+	authMiddleware := middleware.NewAuthMiddleware(jwtManager)
+
 	log.Printf("Initializing scheduler with %d workers, polling every %v", 5, 30*time.Second)
 	schedulerService := service.NewSchedulerService(postRepo,
 		5,              // worker count
@@ -83,10 +87,9 @@ func main() {
 
 	router := chi.NewRouter()
 
-	router.Use(middleware.Throttle(100)) // Ограничение на 100 одновременных запросов
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.AllowContentType("application/json")) // CORS middleware
+	router.Use(loggingMiddleware.RequestID) // Добавляет request_id в контекст
+	router.Use(loggingMiddleware.Logger)    // Безопасно читает request_id
+	router.Use(middleware.Throttle(100))    // Ограничение на 100 одновременных запросов
 
 	// Health check эндпоинт
 	router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -103,8 +106,6 @@ func main() {
 	router.Get("/api/comments/{id}", commentHandler.GetByID)             // - GET /api/comments/{id}
 	router.Get("/api/posts/{postId}/comments", commentHandler.GetByPost) //	· GET /api/posts/{postId}/comments   получение комментариев к посту
 
-	authMiddleware := middlewareauth.NewAuthMiddleware(jwtManager) // middlewareauth “blog-example-go-restapi/internal/middleware”
-
 	router.Post("/api/posts", authMiddleware.RequireAuth(postHandler.Create))        // - POST /api/posts (требует JWT) создание поста (POST /api/posts) — только для авторизованных;
 	router.Put("/api/posts/{id}", authMiddleware.RequireAuth(postHandler.Update))    // - PUT /api/posts/{id} (требует JWT) обновление поста (PUT /api/posts/{id}) — только автор;
 	router.Delete("/api/posts/{id}", authMiddleware.RequireAuth(postHandler.Delete)) // - DELETE /api/posts/{id} (требует JWT)
@@ -117,21 +118,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Запуск планировщика
-	log.Println("Starting scheduler...")
-	schedulerService.Start(ctx)
-
-	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
-	log.Printf("Starting server on %s...", addr)
+	schedulerService.Start(ctx) // Запуск планировщика
 
 	//	if err := http.ListenAndServe(addr, router); err != nil {
 	//		log.Fatalf("Could not start server: %v", err)
 	//	}
+	// addr := fmt.Sprintf("%s:%s", cfg.ServerHost, strconv.Itoa(cfg.ServerPort))
 
-	server := &http.Server{
-		Addr:    cfg.ServerHost + ":" + strconv.Itoa(cfg.ServerPort),
-		Handler: router,
-	}
+	server := &http.Server{Addr: fmt.Sprintf("%s:%s", cfg.ServerHost, strconv.Itoa(cfg.ServerPort)), Handler: router} // cfg.ServerHost + ":" + strconv.Itoa(cfg.ServerPort)
 
 	go func() {
 		log.Printf("Server starting on %s", server.Addr)
@@ -140,23 +134,20 @@ func main() {
 		}
 	}()
 
-	// Ожидание сигналов для graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutting down server...")
 
-	// Остановка планировщика
+	<-quit
 	log.Println("Stopping scheduler...")
 	schedulerService.Stop()
 
-	// Graceful shutdown сервера
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
+
 	defer cancelShutdown()
 
 	if err := server.Shutdown(ctxShutdown); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server exited")
+	log.Println("Server graceful shutdown completed")
 }

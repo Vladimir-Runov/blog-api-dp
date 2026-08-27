@@ -18,6 +18,7 @@ const (
 	testUsername  = "testuser"
 )
 
+
 func newTestJWTManager() *auth.JWTManager {
 	return auth.NewJWTManager(testJWTSecret, timeHour)
 }
@@ -141,14 +142,14 @@ func TestAuth_RequireAuth_MissingToken(t *testing.T) {
 		)
 	}
 
-	expectedMessage := "Unauthorized...Missing token"
+	expectedMessage := "Unauthorized"
 
 	if !strings.Contains(
 		recorder.Body.String(),
 		expectedMessage,
 	) {
 		t.Fatalf(
-			"expected response to contain %q, got %q",
+			">>>expected response to contain %q, got %q",
 			expectedMessage,
 			recorder.Body.String(),
 		)

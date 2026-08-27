@@ -52,7 +52,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Printf("Register.Error registering user: %v", err)
-		blogerrors.ReplyJsonError(w, "Internal server error (7)", http.StatusInternalServerError)
+		blogerrors.ReplyJsonError(w, "Internal server error (7)", http.StatusBadRequest) // 400 Bad Request (было 500)
 		return
 	}
 

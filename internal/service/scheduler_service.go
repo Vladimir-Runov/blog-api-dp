@@ -93,8 +93,6 @@ func (s *SchedulerService) scheduler(ctx context.Context, jobs chan<- *model.Pos
 func (s *SchedulerService) worker(ctx context.Context, id int, jobs <-chan *model.Post) {
 	defer s.wg.Done()
 
-	log.Printf("Worker %d started", id)
-
 	for post := range jobs {
 		select {
 		case <-s.stopChan:

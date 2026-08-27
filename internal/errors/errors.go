@@ -23,6 +23,7 @@ var (
 	ErrUnauthorized    = errors.New("unauthorized")
 	ErrForbidden       = errors.New("forbidden")
 	ErrCommentNotFound = errors.New("comment not found")
+	ErrContextCanceled = errors.New("canceled")
 )
 
 // ErrorResponse - структура для ответа с ошибкой

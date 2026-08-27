@@ -75,7 +75,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound) //  404 при отсутствии сущности.
 		default:
 			log.Printf("POST /api/comments: Failed to create comment to post ID %d: %v", req.PostID, err)
-			blogerrors.ReplyJsonError(w, "Failed to create comment", http.StatusInternalServerError) // 500 Internal Server Error
+			blogerrors.ReplyJsonError(w, "Failed to create comment", http.StatusBadRequest) // 400?   (было 500 Internal Server Error)
 		}
 		return
 	}
@@ -115,7 +115,7 @@ func (h *CommentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		if err == blogerrors.ErrCommentNotFound {
 			blogerrors.ReplyJsonError(w, "Comment not found", http.StatusNotFound)
 		} else {
-			blogerrors.ReplyJsonError(w, "Failed to get comment", http.StatusInternalServerError)
+			blogerrors.ReplyJsonError(w, "Failed to get comment", http.StatusInternalServerError) // 400 ?
 		}
 		return
 	}
@@ -162,8 +162,9 @@ func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	limit, err := strconv.Atoi(query.Get("limit"))
 	if err != nil || limit <= 0 {
-		limit = 20 // значение по умолчанию
+		limit = service.ConstDefaultLimit // значение по умолчанию
 	}
+
 	offset, err := strconv.Atoi(query.Get("offset"))
 	if err != nil || offset < 0 {
 		offset = 0
@@ -175,7 +176,7 @@ func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
 		if err == blogerrors.ErrPostNotFound {
 			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound)
 		} else {
-			blogerrors.ReplyJsonError(w, "Failed to get comments", http.StatusInternalServerError)
+			blogerrors.ReplyJsonError(w, "Failed to get comments", http.StatusInternalServerError) // 400 ?
 		}
 		return
 	}
@@ -246,7 +247,7 @@ func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		case blogerrors.ErrForbidden:
 			blogerrors.ReplyJsonError(w, "You can only update your own comments", http.StatusForbidden) //
 		default:
-			blogerrors.ReplyJsonError(w, "Failed to update comment", http.StatusInternalServerError)
+			blogerrors.ReplyJsonError(w, "Failed to update comment", http.StatusBadRequest) // 400, было 500
 		}
 		return
 	}
@@ -281,8 +282,8 @@ func (h *CommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.commentService.Delete(r.Context(), CommentID, userID)
 	if err != nil { // 5. Обработать ошибки (404 для не найден, 403 для чужого )
-		if err == blogerrors.ErrPostNotFound {
-			log.Printf("Post not found: %v", err)
+		if err == blogerrors.ErrCommentNotFound {
+			log.Printf("Comment not found: %v", err)
 			blogerrors.ReplyJsonError(w, "Comment not found", http.StatusNotFound) //  404 при отсутствии .
 			return
 		}
@@ -291,7 +292,7 @@ func (h *CommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) //  403 при попытке удалить чужой.
 			return
 		}
-		log.Printf("Internal server error: %v", err)
+		log.Printf("Internal server error: %v", err.Error())
 		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError) // 500 Internal Server Error
 		return
 	}

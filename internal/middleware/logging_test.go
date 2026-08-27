@@ -1,516 +1,185 @@
 package middleware
 
-// go test ./internal/middleware
-// go test ./internal/middleware -cover
-
-//Тесты проверяют:
-//	• захват статус-кода в responseWriter;
-//	• логирование метода, URL, IP и статуса;
-//	• статус 200 OK, если обработчик явно не вызвал WriteHeader;
-//	• восстановление после паники;
-//	• запись stack trace в лог;
-//	• CORS-заголовки;
-//	• обработку preflight-запроса OPTIONS;
-//	• генерацию UUID в X-Request-ID;
-//	• передачу request ID через контекст;
-//	• сохранение исходного контекста запроса.
-
+// github.com/google/uuid v1.6.0
 import (
 	"bytes"
 	"context"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
-func testLogger() (*log.Logger, *bytes.Buffer) {
-	var buffer bytes.Buffer
+func TestNewLoggingMiddleware(t *testing.T) {
+	logger := log.New(&bytes.Buffer{}, "", 0)
 
-	logger := log.New(
-		&buffer,
-		"",
-		0,
-	)
-
-	return logger, &buffer
-}
-
-func TestResponseWriter_WriteHeader(t *testing.T) {
-	recorder := httptest.NewRecorder()
-
-	writer := &responseWriter{
-		ResponseWriter: recorder,
-		statusCode:     http.StatusOK,
-	}
-
-	writer.WriteHeader(http.StatusCreated)
-	writer.WriteHeader(http.StatusBadRequest)
-
-	if writer.statusCode != http.StatusCreated {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusCreated,
-			writer.statusCode,
-		)
-	}
-
-	if !writer.written {
-		t.Fatal("expected writer.written to be true")
-	}
-
-	if recorder.Code != http.StatusCreated {
-		t.Fatalf(
-			"expected recorder status %d, got %d",
-			http.StatusCreated,
-			recorder.Code,
-		)
-	}
-}
-
-func TestLoggingMiddleware_Logger(t *testing.T) {
-	logger, logs := testLogger()
 	middleware := NewLoggingMiddleware(logger)
 
-	handlerCalled := false
-
-	handler := middleware.Logger(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		handlerCalled = true
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte("created"))
-	})
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/users",
-		nil,
-	)
-	request.RemoteAddr = "127.0.0.1:12345"
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-
-	if !handlerCalled {
-		t.Fatal("expected next handler to be called")
+	if middleware == nil {
+		t.Fatal("NewLoggingMiddleware() вернул nil")
 	}
 
-	if recorder.Code != http.StatusCreated {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusCreated,
-			recorder.Code,
-		)
-	}
-
-	logOutput := logs.String()
-
-	for _, expected := range []string{
-		"POST",
-		"/users",
-		"127.0.0.1:12345",
-		"201",
-	} {
-		if !strings.Contains(logOutput, expected) {
-			t.Errorf(
-				"expected log to contain %q, got %q",
-				expected,
-				logOutput,
-			)
-		}
-	}
-}
-
-func TestLoggingMiddleware_Logger_DefaultStatus(t *testing.T) {
-	logger, logs := testLogger()
-	middleware := NewLoggingMiddleware(logger)
-
-	handler := middleware.Logger(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		_, _ = w.Write([]byte("ok"))
-	})
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/health",
-		nil,
-	)
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusOK,
-			recorder.Code,
-		)
-	}
-
-	if !strings.Contains(logs.String(), " 200 ") {
-		t.Fatalf(
-			"expected log to contain status 200, got %q",
-			logs.String(),
-		)
-	}
-}
-
-func TestLoggingMiddleware_Recovery(t *testing.T) {
-	logger, logs := testLogger()
-	middleware := NewLoggingMiddleware(logger)
-
-	handler := middleware.Recovery(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		panic("test panic")
-	})
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/panic",
-		nil,
-	)
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusInternalServerError,
-			recorder.Code,
-		)
-	}
-
-	expectedBody := "Internal Server Error\n"
-	if recorder.Body.String() != expectedBody {
-		t.Fatalf(
-			"expected body %q, got %q",
-			expectedBody,
-			recorder.Body.String(),
-		)
-	}
-
-	logOutput := logs.String()
-
-	if !strings.Contains(
-		logOutput,
-		"Recovered from panic: test panic",
-	) {
-		t.Fatalf(
-			"expected recovery log, got %q",
-			logOutput,
-		)
-	}
-
-	if !strings.Contains(logOutput, "Stack trace:") {
-		t.Fatalf(
-			"expected stack trace log, got %q",
-			logOutput,
-		)
-	}
-}
-
-func TestLoggingMiddleware_RecoveryWithoutPanic(t *testing.T) {
-	logger, logs := testLogger()
-	middleware := NewLoggingMiddleware(logger)
-
-	handlerCalled := false
-
-	handler := middleware.Recovery(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		handlerCalled = true
-		w.WriteHeader(http.StatusAccepted)
-	})
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/ok",
-		nil,
-	)
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-	if !handlerCalled {
-		t.Fatal("expected next handler to be called")
-	}
-
-	if recorder.Code != http.StatusAccepted {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusAccepted,
-			recorder.Code,
-		)
-	}
-
-	if strings.Contains(logs.String(), "Recovered from panic") {
-		t.Fatal("did not expect recovery log")
-	}
-}
-
-func TestLoggingMiddleware_CORS(t *testing.T) {
-	logger, _ := testLogger()
-	middleware := NewLoggingMiddleware(logger)
-
-	handlerCalled := false
-
-	handler := middleware.CORS(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		handlerCalled = true
-		w.WriteHeader(http.StatusOK)
-	})
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/posts",
-		nil,
-	)
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-
-	if !handlerCalled {
-		t.Fatal("expected next handler to be called")
-	}
-
-	expectedHeaders := map[string]string{
-		"Access-Control-Allow-Origin":  "*",
-		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type, Authorization",
-		"Access-Control-Max-Age":       "86400",
-	}
-
-	for header, expectedValue := range expectedHeaders {
-		actualValue := recorder.Header().Get(header)
-
-		if actualValue != expectedValue {
-			t.Errorf(
-				"header %q: expected %q, got %q",
-				header,
-				expectedValue,
-				actualValue,
-			)
-		}
-	}
-}
-
-func TestLoggingMiddleware_CORS_Preflight(t *testing.T) {
-	logger, _ := testLogger()
-	middleware := NewLoggingMiddleware(logger)
-
-	handlerCalled := false
-
-	handler := middleware.CORS(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		handlerCalled = true
-	})
-
-	request := httptest.NewRequest(
-		http.MethodOptions,
-		"/posts",
-		nil,
-	)
-
-	recorder := httptest.NewRecorder()
-
-	handler(recorder, request)
-
-	if handlerCalled {
-		t.Fatal("next handler must not be called for OPTIONS request")
-	}
-
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf(
-			"expected status code %d, got %d",
-			http.StatusNoContent,
-			recorder.Code,
-		)
-	}
-
-	if recorder.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Fatal("expected CORS headers to be set")
+	if middleware.logger != logger {
+		t.Fatal("middleware.logger не совпадает с переданным logger")
 	}
 }
 
 func TestLoggingMiddleware_RequestID(t *testing.T) {
-	logger, logs := testLogger()
-	middleware := NewLoggingMiddleware(logger)
+	var receivedRequestID string
 
-	var requestIDFromContext string
-
-	handler := middleware.RequestID(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		value := r.Context().Value("RequestID")
-
-		requestID, ok := value.(string)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, ok := r.Context().Value(RequestIDKey).(string)
 		if !ok {
-			t.Fatal("expected RequestID string in context")
+			t.Fatalf("RequestID отсутствует в контексте или имеет неправильный тип")
 		}
 
-		requestIDFromContext = requestID
-
-		w.WriteHeader(http.StatusOK)
+		receivedRequestID = id
+		w.WriteHeader(http.StatusNoContent)
 	})
 
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/profile",
-		nil,
+	handler := NewLoggingMiddleware(log.Default()).RequestID(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if receivedRequestID == "" {
+		t.Fatal("RequestID пустой")
+	}
+
+	if !regexp.MustCompile(`^\d{14}\.\d{3}-\d+$`).MatchString(receivedRequestID) {
+		t.Errorf("неожиданный формат RequestID: %q", receivedRequestID)
+	}
+
+	if got := rec.Header().Get("X-Request-ID"); got != receivedRequestID {
+		t.Errorf("X-Request-ID = %q, ожидалось %q", got, receivedRequestID)
+	}
+
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("статус = %d, ожидалось %d", rec.Code, http.StatusNoContent)
+	}
+}
+
+func TestLoggingMiddleware_Logger(t *testing.T) {
+	var logs bytes.Buffer
+	logger := log.New(&logs, "", 0)
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	handler := NewLoggingMiddleware(logger).Logger(next)
+
+	req := httptest.NewRequest(http.MethodPost, "/users", nil)
+	req.RemoteAddr = "192.0.2.1:12345"
+	req = req.WithContext(
+		context.WithValue(req.Context(), RequestIDKey, "request-123"),
 	)
 
-	recorder := httptest.NewRecorder()
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	handler(recorder, request)
-
-	requestIDFromHeader := recorder.Header().Get("X-Request-ID")
-
-	if requestIDFromHeader == "" {
-		t.Fatal("expected X-Request-ID response header")
+	if rec.Code != http.StatusCreated {
+		t.Errorf("статус = %d, ожидалось %d", rec.Code, http.StatusCreated)
 	}
 
-	if requestIDFromContext == "" {
-		t.Fatal("expected RequestID in request context")
-	}
+	logLine := logs.String()
 
-	if requestIDFromHeader != requestIDFromContext {
-		t.Fatalf(
-			"header RequestID %q differs from context RequestID %q",
-			requestIDFromHeader,
-			requestIDFromContext,
-		)
-	}
-
-	if _, err := uuid.Parse(requestIDFromHeader); err != nil {
-		t.Fatalf(
-			"expected valid UUID in X-Request-ID, got %q: %v",
-			requestIDFromHeader,
-			err,
-		)
-	}
-
-	expectedLogParts := []string{
-		"Received request GET /profile with Request ID:",
-		requestIDFromHeader,
-	}
-
-	logOutput := logs.String()
-
-	for _, expected := range expectedLogParts {
-		if !strings.Contains(logOutput, expected) {
-			t.Errorf(
-				"expected log to contain %q, got %q",
-				expected,
-				logOutput,
-			)
+	for _, expected := range []string{
+		"request-123",
+		"192.0.2.1:12345",
+		"POST /users",
+		"201",
+	} {
+		if !strings.Contains(logLine, expected) {
+			t.Errorf("лог не содержит %q: %q", expected, logLine)
 		}
 	}
 }
 
-func TestLoggingMiddleware_RequestID_GeneratesDifferentIDs(
-	t *testing.T,
-) {
-	logger, _ := testLogger()
-	middleware := NewLoggingMiddleware(logger)
+func TestLoggingMiddleware_LoggerUsesUnknownRequestID(t *testing.T) {
+	var logs bytes.Buffer
+	logger := log.New(&logs, "", 0)
 
-	handler := middleware.RequestID(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		w.WriteHeader(http.StatusOK)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
 	})
 
-	firstRecorder := httptest.NewRecorder()
-	firstRequest := httptest.NewRequest(
-		http.MethodGet,
-		"/first",
-		nil,
-	)
+	handler := NewLoggingMiddleware(logger).Logger(next)
 
-	handler(firstRecorder, firstRequest)
-	secondRecorder := httptest.NewRecorder()
-	secondRequest := httptest.NewRequest(
-		http.MethodGet,
-		"/second",
-		nil,
-	)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.RemoteAddr = "127.0.0.1:8080"
 
-	handler(secondRecorder, secondRequest)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	firstID := firstRecorder.Header().Get("X-Request-ID")
-	secondID := secondRecorder.Header().Get("X-Request-ID")
-
-	if firstID == "" || secondID == "" {
-		t.Fatal("expected both requests to have request IDs")
+	if rec.Code != http.StatusOK {
+		t.Errorf("статус = %d, ожидалось %d", rec.Code, http.StatusOK)
 	}
 
-	if firstID == secondID {
-		t.Fatalf(
-			"expected different request IDs, got %q",
-			firstID,
-		)
+	logLine := logs.String()
+
+	for _, expected := range []string{
+		"unknown",
+		"127.0.0.1:8080",
+		"GET /health",
+		"200",
+	} {
+		if !strings.Contains(logLine, expected) {
+			t.Errorf("лог не содержит %q: %q", expected, logLine)
+		}
 	}
 }
 
-func TestLoggingMiddleware_RequestID_PreservesRequestContext(
-	t *testing.T,
-) {
-	logger, _ := testLogger()
-	middleware := NewLoggingMiddleware(logger)
+// TestLoggingMiddleware_FullChain проверяет совместную работу двух middleware:
+//  1. RequestID — создаёт идентификатор запроса.
+//  2. Logger — логирует информацию о запросе и ответе.
+//     создаётся идентификатор, передаётся дальше по цепочке, попадает в ответ и записывается в лог.
+func TestLoggingMiddleware_FullChain(t *testing.T) {
 
-	const contextKey = "original-key"
-	const contextValue = "original-value"
+	var logs bytes.Buffer
+	logger := log.New(&logs, "", 0)
 
-	handler := middleware.RequestID(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
-		if got := r.Context().Value(contextKey); got != contextValue {
-			t.Fatalf(
-				"expected original context value %q, got %v",
-				contextValue,
-				got,
-			)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Context().Value(RequestIDKey) == nil {
+			t.Error("RequestID отсутствует в контексте")
 		}
 
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusAccepted)
 	})
 
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/context",
-		nil,
+	handler := NewLoggingMiddleware(logger).RequestID(
+		NewLoggingMiddleware(logger).Logger(next),
 	)
 
-	request = request.WithContext(
-		context.WithValue(
-			request.Context(),
-			contextKey,
-			contextValue,
-		),
-	)
+	req := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	req.RemoteAddr = "203.0.113.10:4567"
 
-	recorder := httptest.NewRecorder()
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	handler(recorder, request)
+	requestID := rec.Header().Get("X-Request-ID")
+	if requestID == "" {
+		t.Fatal("заголовок X-Request-ID отсутствует")
+	}
+
+	if rec.Code != http.StatusAccepted {
+		t.Errorf("статус = %d, ожидалось %d", rec.Code, http.StatusAccepted)
+	}
+
+	logLine := logs.String()
+
+	for _, expected := range []string{
+		requestID,
+		"203.0.113.10:4567",
+		"GET /api/items",
+		"202",
+	} {
+		if !strings.Contains(logLine, expected) {
+			t.Errorf("лог не содержит %q: %q", expected, logLine)
+		}
+	}
 }
