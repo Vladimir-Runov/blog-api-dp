@@ -84,7 +84,7 @@ func (s *PostService) GetByID(ctx context.Context, id int) (*model.Post, error) 
 
 func (s *PostService) GetAll(ctx context.Context, limit, offset int) ([]*model.Post, int, error) {
 
-	if limit <= 0 {
+	if limit <= 0 { // internal validation
 		limit = 10 // default limit
 	} else if limit > 100 {
 		limit = 100 // maximum limit
@@ -107,6 +107,7 @@ func (s *PostService) GetAll(ctx context.Context, limit, offset int) ([]*model.P
 	}
 
 	for _, post := range posts {
+		//log.Printf(" = post id %d", post.ID)
 		if post.AuthorID != 0 {
 			author, err := s.userRepo.GetByID(ctx, post.AuthorID)
 			if err == nil {
@@ -169,20 +170,21 @@ func (s *PostService) Delete(ctx context.Context, id int, userID int) error {
 	// Step 1: Find post and check existence
 	post, err := s.postRepo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to get post: %w", err)
+		return blogerrors.ErrPostNotFound // Возвращаем специфическую ошибку, если  не найден
+		//return fmt.Errorf("failed to get post: %w", err)
 	}
 	if post == nil {
-		return fmt.Errorf("post not found")
+		return blogerrors.ErrPostNotFound // Возвращаем специфическую ошибку, если  не найден
 	}
 
 	// Step 2: Check that userID is the author
 	if post.AuthorID != userID {
-		return fmt.Errorf("forbidden: you are not the author of this post")
+		return blogerrors.ErrForbidden // Возвращаем ErrForbidden, если пользователь не является автором ("forbidden: you are not the author of this post")
 	}
 
 	// Step 3: Delete through repository
 	if err := s.postRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete post: %w", err)
+		return fmt.Errorf("failed to delete post: %w", err) // 500
 	}
 
 	// Step 4: Return nil if successful

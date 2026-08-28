@@ -109,21 +109,17 @@ func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // GET /api/posts?limit=10&offset=0
 // Не требует аутентификации
 func (h *PostHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	log.Printf("GET /api/posts: Retrieving all posts with pagination")
-	// 1. Проверить метод запроса (должен быть GET)
+	log.Printf("GET /api/posts: GetAll - Retrieving all posts with pagination")
+
 	if r.Method != http.MethodGet {
 		blogerrors.ReplyJsonError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	// 2. Извлечь параметры пагинации из query string
 	query := r.URL.Query()
-
 	limitStr := query.Get("limit")
 	offsetStr := query.Get("offset")
 
-	// Значения по умолчанию
-	limit := 10
+	limit := service.ConstDefaultLimit // значение по умолчанию
 	offset := 0
 
 	// Парсим limit
@@ -146,6 +142,7 @@ func (h *PostHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if posts == nil {
+		log.Printf(" = nil")
 		posts = []*model.Post{}
 	}
 
@@ -264,8 +261,8 @@ func (h *PostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.postService.Delete(r.Context(), postID, userID)
 	if err != nil { // 5. Обработать ошибки (404 для не найден, 403 для чужого поста)
 		if err == blogerrors.ErrPostNotFound {
-			log.Printf("Post not found: %v", err)
-			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound) //  404 при отсутствии поста.
+			log.Printf("*** Post not found: %v", err)
+			blogerrors.ReplyJsonError(w, "Post not found!", http.StatusNotFound) //  404 при отсутствии поста.
 			return
 		}
 		if err == blogerrors.ErrForbidden {
