@@ -122,7 +122,7 @@ go mod download
 ###2. Запустить docker PostgreSQL
 docker-compose up -d
 Подождать пока БД запустится.   
-Проверить что БД работает на порту 5432: 'listening on IPv4 address "0.0.0.0", port 5432' (опционально)
+Проверить что БД работает 
 docker-compose logs postgres
 ```
 
