@@ -36,10 +36,6 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found, using default environment variables")
 	}
-	dir := `C:\Users\Admin\Documents\go\git_netology\blog-api-dp`
-	if err := os.Chdir(dir); err != nil {
-		log.Fatalf("Не удалось перейти в каталог %q: %v", dir, err)
-	}
 
 	cfg := config.EnvloadConfig() //  конфигурацию из переменных окружения
 	db, err := database.NewPostgresDB(database.Config{
