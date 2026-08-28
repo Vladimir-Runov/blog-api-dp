@@ -65,17 +65,15 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByID - возвращает пост по ID
 // GET /api/posts/{id}
+// Примерный URL: /api/posts/123
 // Не требует аутентификации
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	log.Printf("GET /api/posts/{id}: Retrieving post")
-	// 1. Проверить метод запроса (должен быть GET)
+	log.Printf("GET /api/posts/{id}: GetByID Retrieving post")
 	if r.Method != http.MethodGet {
 		blogerrors.ReplyJsonError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 2. Извлечь ID из URL
-	// Примерный URL: /api/posts/123
 	idStr := extractIDFromPath(r.URL.Path, "/api/posts/")
 	postID, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -83,13 +81,18 @@ func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Получить пост через postService.GetByID
 	post, err := h.postService.GetByID(r.Context(), postID)
 	if err != nil { // 4. Обработать ошибки (ErrPostNotFound -> 404)
-		if err == blogerrors.ErrPostNotFound {
-			blogerrors.ReplyJsonError(w, "Post not found", http.StatusNotFound) //  404 при отсутствии поста.
+		if errors.Is(err, blogerrors.ErrPostNotFound) {
+			blogerrors.ReplyJsonError(w, "Post Not Found", http.StatusNotFound) // 404 при отсутствии поста.
 			return
 		}
+
+		if errors.Is(err, blogerrors.ErrForbidden) {
+			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) // 403 при попытке обновить чужой пост.
+			return
+		}
+
 		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

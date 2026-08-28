@@ -68,7 +68,7 @@ func (s *PostService) GetByID(ctx context.Context, id int) (*model.Post, error) 
 
 	post, err := s.postRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get post by ID: %w", err)
+		return nil, err // NotFound or SQL
 	}
 
 	if post.AuthorID != 0 {
