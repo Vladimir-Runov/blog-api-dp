@@ -7,6 +7,7 @@ import (
 	"blog-api-dp/internal/service"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -46,7 +47,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// fix: AuthHandler.Register сравнивает ошибку с model.ErrUserAlreadyExists, а UserService.Register при занятом email возвращает обычную ошибку через fmt.Errorf(“email уже занят”), а не этот sentinel error.
 		// Поэтому handler не сможет распознать конфликт и вместо 409 Conflict вернёт внутреннюю ошибку.
-		if err == blogerrors.ErrUserAlreadyExists { // 4. Обработать ошибки (ErrUserAlreadyExists -> 409 Conflict)
+		if errors.Is(err, blogerrors.ErrUserAlreadyExists) { // 4. Обработать ошибки (ErrUserAlreadyExists -> 409 Conflict)
 			log.Printf("Register.Error user already exists: %v", err)
 			blogerrors.ReplyJsonError(w, "User already exists", http.StatusConflict) // 409 Conflict при попытке зарегистрировать уже существующего пользователя
 			return
@@ -93,7 +94,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context() // fix: должен использоваться r.Context().
 	tokenResp, err := h.userService.Login(ctx, &req)
 	if err != nil { // 4. Обработать ошибки (ErrInvalidCredentials -> 401 Unauthorized)
-		if err == blogerrors.ErrInvalidCredentials {
+		if errors.Is(err, blogerrors.ErrInvalidCredentials) {
 			log.Printf("Invalid credentials for user: %s", req.Email)
 			blogerrors.ReplyJsonError(w, "Unauthorized", http.StatusUnauthorized) // 401 Unauthorized при неверных учетных данных
 			return

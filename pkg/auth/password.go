@@ -18,15 +18,6 @@ var (
 
 // HashPassword хеширует пароль используя bcrypt
 func HashPassword(password string) (string, error) {
-	// TODO: Реализовать хеширование пароля
-	// Шаги:
-	// 1. Проверить что пароль не пустой
-	// 2. Использовать bcrypt для хеширования
-	// 3. Выбрать подходящий cost factor (например, 10-12)
-	// 4. Вернуть хешированный пароль как строку
-	//
-	// Подсказка: используйте golang.org/x/crypto/bcrypt
-	// return "", errors.New("not implemented")
 
 	if password == "" {
 		return "", ErrEmptyPassword
@@ -43,13 +34,6 @@ func HashPassword(password string) (string, error) {
 
 // CheckPassword проверяет соответствие пароля и его хеша
 func CheckPassword(password, hash string) bool {
-	// TODO: Реализовать проверку пароля
-	// Шаги:
-	// 1. Сравнить пароль с хешом используя bcrypt
-	// 2. Вернуть true если пароль совпадает, false если нет
-	// 3. При ошибке вернуть false
-	//
-	// Подсказка: bcrypt.CompareHashAndPassword
 
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err == nil {
@@ -60,15 +44,6 @@ func CheckPassword(password, hash string) bool {
 
 // ValidatePasswordStrength проверяет надежность пароля
 func ValidatePasswordStrength(password string) error {
-	// TODO: Реализовать проверку надежности пароля
-	// Требования:
-	// - Минимум 6 символов
-	// - Опционально: содержит буквы и цифры
-	// - Опционально: содержит заглавные и строчные буквы
-	//
-	// Вернуть соответствующую ошибку или nil
-	// return errors.New("not implemented")
-
 	if len(password) < 6 {
 		return ErrPasswordTooShort
 	}

@@ -144,6 +144,7 @@ func (h *PostHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		blogerrors.ReplyJsonError(w, "Failed to fetch posts:", http.StatusInternalServerError)
 		return
 	}
+
 	if posts == nil {
 		log.Printf(" = nil")
 		posts = []*model.Post{}
@@ -177,7 +178,6 @@ func (h *PostHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
 	log.Printf("PUT /api/posts/{id} Updating post")
 
-	// 1. Проверить метод запроса (должен быть PUT)
 	if r.Method != http.MethodPut {
 		blogerrors.ReplyJsonError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -263,16 +263,18 @@ func (h *PostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// 4. Удаление поста через сервис
 	err = h.postService.Delete(r.Context(), postID, userID)
 	if err != nil { // 5. Обработать ошибки (404 для не найден, 403 для чужого поста)
-		if err == blogerrors.ErrPostNotFound {
+		if errors.Is(err, blogerrors.ErrPostNotFound) {
 			log.Printf("*** Post not found: %v", err)
 			blogerrors.ReplyJsonError(w, "Post not found!", http.StatusNotFound) //  404 при отсутствии поста.
 			return
 		}
-		if err == blogerrors.ErrForbidden {
+
+		if errors.Is(err, blogerrors.ErrForbidden) {
 			log.Printf("Forbidden access attempt to delete post")
 			blogerrors.ReplyJsonError(w, "Forbidden", http.StatusForbidden) //  403 при попытке удалить чужой пост.
 			return
 		}
+
 		log.Printf("Internal server error: %v", err)
 		blogerrors.ReplyJsonError(w, "Internal Server Error", http.StatusInternalServerError) // 500 Internal Server Error
 		return
@@ -338,7 +340,6 @@ func (h *PostHandler) GetByAuthor(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
-
 }
 
 // extractIDFromPath извлекает ID из пути URL

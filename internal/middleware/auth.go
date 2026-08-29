@@ -40,14 +40,12 @@ func (m *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 1. Извлечь токен из заголовка Authorization (Bearer токен)
 		tokenString := extractToken(r)
 		if tokenString == "" {
-			//			http.Error(w, "Unauthorized...Missing token", http.StatusUnauthorized)
 			blogerrors.ReplyJsonError(w, "Unauthorized...missing token", http.StatusUnauthorized) //
 			return
 		}
 		// 2. Валидировать токен через jwtManager
 		claims, err := m.jwtManager.ValidateToken(tokenString)
 		if err != nil { // 3. Обработать ошибки валидации
-			//			http.Error(w, "Unauthorized...Invalid token ("+err.Error()+")", http.StatusUnauthorized)
 			blogerrors.ReplyJsonError(w, "Unauthorized...Invalid token ("+err.Error()+")", http.StatusUnauthorized) //
 			return
 		}
@@ -115,11 +113,6 @@ func extractToken(r *http.Request) string {
 // GetUserIDFromContext извлекает ID пользователя из контекста
 // Извлечь userID из контекста (ключ UserIDKey)
 func GetUserIDFromContext(ctx context.Context) (int, bool) {
-	//		В middleware вы кладёте значение так:	ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)		UserIDKey — это не обычная строка, а значение типа contextKey, и claims.UserID имеет тип int.
-	// 		А в post_handler.go вы достаёте так:	userID, ok := ctx.Value(“userID”).(string)
-	//
-	//		Это не сработает корректно: ключ “userID” типа string не равен ключу UserIDKey типа contextKey, даже если текстовое значение одинаковое. И дополнительно вы ожидаете string, хотя в context положен int.
-	//		Поэтому лучше сделать получение ID единообразным: либо использовать готовую функцию из middleware: userID, ok := middlewareauth.GetUserIDFromContext(r.Context())
 
 	userID, ok := ctx.Value(UserIDKey).(int) // Извлекаем userID из контекста
 	return userID, ok                        // Возвращаем ID и статус наличия
@@ -149,12 +142,7 @@ type ErrorResponse struct {
 
 // writeJSONError отправляет ошибку в формате JSON
 func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
-	// TODO: Отправить ошибку в формате JSON
-	// Создать структуру ErrorResponse и отправить как JSON
 
-	// Временная реализация
-	//http.Error(w, message, statusCode)
-	// Устанавливаем заголовок Content-Type
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 

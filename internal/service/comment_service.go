@@ -80,7 +80,7 @@ func (s *CommentService) Create(ctx context.Context, userID int, req *model.Comm
 
 // TODO: Получить комментарий по ID
 func (s *CommentService) GetByID(ctx context.Context, id int) (*model.Comment, error) {
-	log.Printf("\t(s *CommentService) GetByID(....")
+	log.Printf("\n\n\t(s *CommentService) GetByID(....%d", id)
 
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -139,25 +139,23 @@ func (s *CommentService) GetByPost(ctx context.Context, postID int, limit, offse
 
 // Обновить комментарий
 func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, req *model.CommentUpdateRequest) (*model.Comment, error) {
-	log.Printf("\t(s *CommentService) Update(....")
+	log.Printf("\t(s *CommentService) Update(....CommentId=%d, userID=%d \n\n", CommentId, userID)
 	commentUpd, err := s.commentRepo.GetByID(ctx, CommentId)
 	if err != nil {
-		return nil, blogerrors.ErrCommentNotFound // Return a specific error if the comment is not found
+		return nil, blogerrors.ErrCommentNotFound // Return a specific error (CommentNotFound ) if the comment is not found or SQL
 	}
 
 	log.Printf("Comment author id %d,  %d user id from context", commentUpd.AuthorID, userID)
 	// 2. Проверить что userID является автором (иначе ErrForbidden)
 	if commentUpd.AuthorID != userID {
-		log.Printf("Comment author id %d <> %d user id from context", commentUpd.AuthorID, userID)
+		log.Printf("Comment author id %d <> %d user id from context\n\n", commentUpd.AuthorID, userID)
 		return nil, blogerrors.ErrForbidden // fix: Возвращаем ErrForbidden 403 при попытке редактировать чужой коммент
 	}
 
-	// 3. Валидировать новый content
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
-	// 4. Обновить content и временную метку
 	commentUpd.Content = req.Content
 	commentUpd.UpdatedAt = time.Now()
 
@@ -178,11 +176,11 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 func (s *CommentService) Delete(ctx context.Context, id int, userID int) error {
 	comment, err := s.commentRepo.GetByID(ctx, id)
 	if err != nil {
-		return blogerrors.ErrCommentNotFound // Возвращаем специфическую ошибку, если комментарий не найден
+		return blogerrors.ErrCommentNotFound //  NotFound , если комментарий не найден
 	}
 
 	if comment.AuthorID != userID {
-		return blogerrors.ErrForbidden // Возвращаем ErrForbidden, если пользователь не является автором комментария
+		return blogerrors.ErrForbidden //  ErrForbidden, если пользователь не является автором комментария
 	}
 
 	err = s.commentRepo.Delete(ctx, id)
@@ -190,12 +188,12 @@ func (s *CommentService) Delete(ctx context.Context, id int, userID int) error {
 		return err // Возвращаем ошибку, если удаление не удалось
 	}
 
-	return nil //return fmt.Errorf("not implemented")
+	return nil
 }
 
 // validateCommentCreateRequest проверяет корректность данных для создания комментария
 func validateCommentCreateRequest(req *model.CommentCreateRequest) error {
-	// TODO: Реализовать валидацию content и PostID
+
 	// Проверка на пустое содержимое
 	if strings.TrimSpace(req.Content) == "" {
 		return errors.New("content cannot be empty")
@@ -217,7 +215,6 @@ func validateCommentCreateRequest(req *model.CommentCreateRequest) error {
 
 // validateCommentUpdateRequest проверяет корректность данных для обновления комментария
 func validateCommentUpdateRequest(req *model.CommentUpdateRequest) error {
-	// TODO: Реализовать валидацию content
 	// Проверка на пустое содержимое
 	if strings.TrimSpace(req.Content) == "" {
 		return errors.New("content cannot be empty")
@@ -228,8 +225,6 @@ func validateCommentUpdateRequest(req *model.CommentUpdateRequest) error {
 	if len(req.Content) > maxContentLength {
 		return errors.New("content exceeds maximum length")
 	}
-
-	// Здесь можно добавить дополнительные проверки, если необходимо
 
 	return nil
 }

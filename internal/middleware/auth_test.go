@@ -18,7 +18,6 @@ const (
 	testUsername  = "testuser"
 )
 
-
 func newTestJWTManager() *auth.JWTManager {
 	return auth.NewJWTManager(testJWTSecret, timeHour)
 }
