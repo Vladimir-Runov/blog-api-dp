@@ -37,8 +37,7 @@ func NewCommentService(
 
 // TODO: Создать новый комментарий
 func (s *CommentService) Create(ctx context.Context, userID int, req *model.CommentCreateRequest) (*model.Comment, error) {
-	log.Printf("CommentService: Creating comment for user ID %d on post ID %d", userID, req.PostID)
-	// 1. Валидация данных
+
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -46,7 +45,7 @@ func (s *CommentService) Create(ctx context.Context, userID int, req *model.Comm
 	//  Проверить, что пост существует
 	exists, err := s.postRepo.Exists(ctx, req.PostID)
 	if err != nil {
-		log.Printf("CommentService: Failed to check existence of post ID %d: %v", req.PostID, err)
+		log.Printf("CommentService: Error postRepo.Exists post ID %d: %v", req.PostID, err)
 		return nil, err // Возвращаем SQL ошибку, если не удалось проверить существование поста
 	}
 
@@ -63,18 +62,15 @@ func (s *CommentService) Create(ctx context.Context, userID int, req *model.Comm
 		CreatedAt: time.Now(), // добавляем время создания
 	}
 
-	// Сохранение через репозиторий
 	if err := s.commentRepo.Create(ctx, comment); err != nil {
 		return nil, fmt.Errorf("failed to save comment: %w", err)
 	}
 
-	// 5. Опционально: обогащение ответа информацией об авторе
 	author, err := s.userRepo.GetByID(ctx, userID)
 	if err == nil {
 		comment.AuthorID = author.ID
 	}
 
-	// 6. Вернуть созданный комментарий
 	return comment, nil
 }
 
@@ -145,9 +141,7 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 		return nil, blogerrors.ErrCommentNotFound // Return a specific error (CommentNotFound ) if the comment is not found or SQL
 	}
 
-	log.Printf("Comment author id %d,  %d user id from context", commentUpd.AuthorID, userID)
-	// 2. Проверить что userID является автором (иначе ErrForbidden)
-	if commentUpd.AuthorID != userID {
+	if commentUpd.AuthorID != userID { // userID является автором (иначе ErrForbidden)
 		log.Printf("Comment author id %d <> %d user id from context\n\n", commentUpd.AuthorID, userID)
 		return nil, blogerrors.ErrForbidden // fix: Возвращаем ErrForbidden 403 при попытке редактировать чужой коммент
 	}
@@ -158,8 +152,6 @@ func (s *CommentService) Update(ctx context.Context, CommentId int, userID int, 
 
 	commentUpd.Content = req.Content
 	commentUpd.UpdatedAt = time.Now()
-
-	//	updReq := model.CommentUpdateRequest{} // todo
 
 	// 5. Сохранить через репозиторий
 	err = s.commentRepo.Update(ctx, commentUpd) // hot fix: вызов репозитория для обновления комментария (испр. рекурсивный вызов)

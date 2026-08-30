@@ -166,10 +166,10 @@ func (h *CommentHandler) GetByPost(w http.ResponseWriter, r *http.Request) {
 	resp := make([]model.CommentResponse, len(comments))
 	for i, comment := range comments {
 		resp[i] = model.CommentResponse{
-			ID:      comment.ID,
-			Content: comment.Content,
-			PostID:  postID,
-			//	Author:    ,
+			ID:        comment.ID,
+			Content:   comment.Content,
+			PostID:    postID,
+			Author:    model.UserResponse{Username: "", ID: comment.AuthorID},
 			CreatedAt: comment.CreatedAt,
 			UpdatedAt: comment.UpdatedAt,
 		}
@@ -218,7 +218,6 @@ func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.CommentID = commentID
-	log.Printf("\tcall srv Update \n\n")
 
 	// 5. Обновить комментарий через сервис
 	comment, err := h.commentService.Update(r.Context(), commentID, userID, &req)

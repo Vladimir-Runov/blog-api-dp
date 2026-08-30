@@ -101,7 +101,7 @@ func (r *CommentRepo) GetByPostID(ctx context.Context, postID int, limit int, of
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan comment: %w", err)
 		}
-
+		//log.Printf("comment ID=%d, PostID = %d AuthorID = %d\n", comment.ID, comment.PostID, comment.AuthorID)
 		comments = append(comments, &comment)
 	}
 
